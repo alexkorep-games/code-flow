@@ -2,1023 +2,260 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Code Flow Puzzle</title>
     <style>
       body {
-        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        font-family: sans-serif;
         display: flex;
         flex-direction: column;
         align-items: center;
-        margin: 0;
-        padding: 20px;
-        background-color: #f0f0f0;
-        color: #333;
+        margin: 20px;
       }
-
       h1 {
-        color: #2c3e50;
+        margin-bottom: 10px;
       }
-
-      .controls {
-        margin-bottom: 20px;
-        padding: 15px;
-        background-color: #fff;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        display: flex;
-        flex-wrap: wrap; /* Allow wrapping for smaller screens */
-        gap: 15px;
-        align-items: center;
-      }
-
-      .controls label {
-        margin-right: 5px;
-      }
-
-      .controls select,
-      .controls input[type="number"],
-      .controls button {
-        padding: 8px 12px;
-        border-radius: 4px;
-        border: 1px solid #ccc;
-        font-size: 1em;
-      }
-
-      .controls input[type="number"] {
-        width: 60px;
-      }
-
-      .controls button {
-        background-color: #3498db;
-        color: white;
-        cursor: pointer;
-        transition: background-color 0.3s ease;
-      }
-
-      .controls button:hover {
-        background-color: #2980b9;
-      }
-
-      #puzzle-status {
+      #controls {
         margin-bottom: 15px;
-        font-size: 1.2em;
-        font-weight: bold;
-        color: #e67e22;
       }
-
-      #puzzle-status.solved {
-        color: #2ecc71;
-      }
-      #puzzle-status.testing {
-        color: #3498db; /* Blue color for testing status */
-      }
-      #puzzle-status.test-failed {
-        color: #e74c3c; /* Red color for test failure status */
-      }
-
-      #puzzle-container {
-        margin-top: 10px; /* Added some margin */
-      }
-
-      .puzzle-grid {
-        display: grid;
-        border: 2px solid #34495e;
-        background-color: #ecf0f1;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-      }
-
-      .tile {
+      #controls input {
         width: 50px;
-        height: 50px;
-        box-sizing: border-box;
-        border: 1px solid #bdc3c7;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        font-size: 28px;
+        margin: 0 5px;
+      }
+      #puzzle {
+        background: #f0f0f0;
         cursor: pointer;
-        user-select: none;
-        transition: background-color 0.2s ease;
-        background-color: #fff;
-      }
-
-      .tile:hover:not(.locked):not(.solved-state) {
-        background-color: #e0e0e0;
-      }
-
-      .tile.locked {
-        cursor: not-allowed;
-        background-color: #d0d0d0;
-        color: #7f8c8d;
-      }
-
-      .tile.start-tile,
-      .tile.end-tile {
-        font-weight: bold;
-      }
-
-      .tile.start-tile {
-        background-color: #2ecc71;
-        color: white;
-      }
-
-      .tile.end-tile {
-        background-color: #e74c3c;
-        color: white;
-      }
-
-      .tile.on-solution-path.solved-state {
-        background-color: #a2f2c0;
-      }
-      .tile.solved-state:not(.on-solution-path) {
-        background-color: #f5f5f5;
+        box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
       }
     </style>
   </head>
   <body>
     <h1>Code Flow Puzzle</h1>
-
-    <div class="controls">
-      <label for="board-size">Rows:</label>
-      <input type="number" id="board-size" value="5" min="3" max="15" />
-      <label for="board-size-cols">Cols:</label>
-      <input type="number" id="board-size-cols" value="5" min="3" max="15" />
-
-      <label for="locked-level">Locked Tiles:</label>
-      <select id="locked-level">
-        <option value="0.1">Low (New Feature)</option>
-        <option value="0.25" selected>Medium (Refactor)</option>
-        <option value="0.4">High (Legacy Bugfix)</option>
-      </select>
-
-      <button id="start-puzzle">Start New Puzzle</button>
+    <div id="controls">
+      Grid Size:
+      <input id="size" type="number" min="3" max="10" value="5" />
+      Locked %:
+      <input id="locked" type="number" min="0" max="100" value="20" />
+      <button id="generate">Generate Puzzle</button>
     </div>
-
-    <div id="puzzle-status">Initialize a puzzle to begin!</div>
-    <div id="puzzle-container">
-      <!-- Puzzle grid will be rendered here by JS -->
-    </div>
+    <canvas id="puzzle"></canvas>
 
     <script>
-      const TILE_DEFINITIONS = {
-        I: {
-          connections: [
-            [true, false, true, false], // N-S (│)
-            [false, true, false, true], // E-W (─)
-          ],
-          chars: ["│", "─"],
-        },
-        L: {
-          connections: [
-            [true, true, false, false], // N-E (┘)
-            [false, true, true, false], // E-S (└)
-            [false, false, true, true], // S-W (┌)
-            [true, false, false, true], // N-W (┐)
-          ],
-          chars: ["┘", "└", "┌", "┐"],
-        },
-        T: {
-          connections: [
-            [true, true, false, true], // N-E-W, open S (┤)
-            [true, true, true, false], // N-E-S, open W (┴)
-            [false, true, true, true], // E-S-W, open N (├)
-            [true, false, true, true], // N-S-W, open E (┬)
-          ],
-          chars: ["┤", "┴", "├", "┬"],
-        },
-        X: {
-          connections: [[true, true, true, true]],
-          chars: ["┼"],
-        },
-        START: {
-          // Connection is where the path EXITS the start tile
-          connections: [
-            // N, E, S, W
-            [false, true, false, false], // Rot 0: Connects East
-            [false, false, true, false], // Rot 1: Connects South
-            [false, false, false, true], // Rot 2: Connects West
-            [true, false, false, false], // Rot 3: Connects North
-          ],
-          chars: ["►", "▼", "◄", "▲"], // Char visually indicates exit direction
-          isSpecial: true,
-        },
-        END: {
-          // Connection is where the path ENTERS the end tile
-          connections: [
-            // N, E, S, W (End tile must be open on this side)
-            [false, true, false, false], // Rot 0: Open East (accepts from West)
-            [false, false, true, false], // Rot 1: Open South (accepts from North)
-            [false, false, false, true], // Rot 2: Open West (accepts from East)
-            [true, false, false, false], // Rot 3: Open North (accepts from South)
-          ],
-          chars: ["►", "▼", "◄", "▲"], // Char visually indicates open side
-          isSpecial: true,
-        },
-      };
+      const canvas = document.getElementById("puzzle");
+      const ctx = canvas.getContext("2d");
+      const TILE = 60;
 
-      let board = [];
-      let numRows = 5;
-      let numCols = 5;
-      let lockedTilePercentage = 0.25;
-      let startPos = { r: 0, c: 0 };
-      let endPos = { r: 4, c: 4 };
-      let gameSolved = false;
-      let solutionPathCellsSet = new Set();
+      let grid = [],
+        N,
+        lockedPercent;
 
-      const puzzleContainer = document.getElementById("puzzle-container");
-      const puzzleStatusEl = document.getElementById("puzzle-status");
-      const boardSizeRowsInput = document.getElementById("board-size");
-      const boardSizeColsInput = document.getElementById("board-size-cols");
-      const lockedLevelSelect = document.getElementById("locked-level");
-      const startPuzzleButton = document.getElementById("start-puzzle");
-
-      function getTileActualConnections(tile) {
-        if (!tile || !tile.type || !TILE_DEFINITIONS[tile.type])
-          return [false, false, false, false];
-        const def = TILE_DEFINITIONS[tile.type];
-        return def.connections[tile.rotation % def.connections.length];
-      }
-
-      function getTileChar(tile) {
-        if (!tile || !tile.type || !TILE_DEFINITIONS[tile.type]) return " ";
-        const def = TILE_DEFINITIONS[tile.type];
-        return def.chars[tile.rotation % def.chars.length];
-      }
-
-      function shuffleArray(array) {
-        for (let i = array.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [array[i], array[j]] = [array[j], array[i]];
-        }
-      }
-
-      function getNeighbors(r, c, rows, cols) {
-        const neighbors = [];
-        const dr = [-1, 0, 1, 0]; // N, E, S, W
-        const dc = [0, 1, 0, -1];
-        const dirs = [0, 1, 2, 3]; // 0:N, 1:E, 2:S, 3:W connection FROM current cell
-        const oppositeDirs = [2, 3, 0, 1]; // Connection TO current cell from neighbor
-
-        for (let i = 0; i < 4; i++) {
-          const nr = r + dr[i];
-          const nc = c + dc[i];
-          if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
-            neighbors.push({
-              r: nr,
-              c: nc,
-              dir: dirs[i],
-              oppositeDir: oppositeDirs[i],
-            });
-          }
-        }
-        return neighbors;
-      }
-
-      function createSolutionPath(rows, cols, startR, startC, endR, endC) {
-        const stack = [
-          {
-            r: startR,
-            c: startC,
-            pathCells: [
-              {
-                r: startR,
-                c: startC,
-                connections: [false, false, false, false],
-              },
-            ],
-          },
-        ];
-        const visitedForPathfinding = new Set([`${startR}-${startC}`]);
-        let generatedPathCells = null;
-
-        while (stack.length > 0) {
-          const current = stack.pop();
-          const { r, c, pathCells } = current;
-
-          if (r === endR && c === endC) {
-            generatedPathCells = pathCells;
-            break;
-          }
-
-          const neighbors = getNeighbors(r, c, rows, cols);
-          shuffleArray(neighbors);
-
-          for (const neighbor of neighbors) {
-            if (!visitedForPathfinding.has(`${neighbor.r}-${neighbor.c}`)) {
-              visitedForPathfinding.add(`${neighbor.r}-${neighbor.c}`);
-              const newPathCells = pathCells.map((pc) => ({
-                ...pc,
-                connections: [...pc.connections],
-              }));
-              let currentCellInPath = newPathCells.find(
-                (p) => p.r === r && p.c === c
-              );
-              currentCellInPath.connections[neighbor.dir] = true;
-              let neighborCellInPath = newPathCells.find(
-                (p) => p.r === neighbor.r && p.c === neighbor.c
-              );
-              if (!neighborCellInPath) {
-                neighborCellInPath = {
-                  r: neighbor.r,
-                  c: neighbor.c,
-                  connections: [false, false, false, false],
-                };
-                newPathCells.push(neighborCellInPath);
-              }
-              neighborCellInPath.connections[neighbor.oppositeDir] = true;
-              stack.push({
-                r: neighbor.r,
-                c: neighbor.c,
-                pathCells: newPathCells,
-              });
-            }
-          }
-        }
-
-        if (!generatedPathCells) return null;
-
-        const pathTilesData = {};
-        for (const cell of generatedPathCells) {
-          const { r, c, connections } = cell;
-          const numConnections = connections.filter((conn) => conn).length;
-          let type, rotation;
-
-          if (r === startR && c === startC) {
-            type = "START";
-            const exitDir = connections.indexOf(true);
-            if (exitDir === 0)
-              rotation = 3; // Path EXITS North, START points North (▲)
-            else if (exitDir === 1)
-              rotation = 0; // Path EXITS East, START points East (►)
-            else if (exitDir === 2)
-              rotation = 1; // Path EXITS South, START points South (▼)
-            else if (exitDir === 3)
-              rotation = 2; // Path EXITS West, START points West (◄)
-            else rotation = 0;
-          } else if (r === endR && c === endC) {
-            type = "END";
-            const entryDir = connections.indexOf(true); // This is the side of END tile that is open/connected
-            if (entryDir === 0)
-              rotation = 3; // END is open North (accepts from South) ▲
-            else if (entryDir === 1)
-              rotation = 0; // END is open East (accepts from West) ►
-            else if (entryDir === 2)
-              rotation = 1; // END is open South (accepts from North) ▼
-            else if (entryDir === 3)
-              rotation = 2; // END is open West (accepts from East) ◄
-            else rotation = 0;
+      function initPuzzle() {
+        N = parseInt(document.getElementById("size").value);
+        lockedPercent = parseInt(document.getElementById("locked").value);
+        canvas.width = canvas.height = N * TILE;
+        // build snake‐path Hamiltonian chain
+        const cells = [];
+        for (let r = 0; r < N; r++) {
+          if (r % 2 === 0) {
+            for (let c = 0; c < N; c++) cells.push([r, c]);
           } else {
-            if (numConnections === 2) {
-              const [first, second] = connections
-                .map((val, idx) => (val ? idx : -1))
-                .filter((idx) => idx !== -1);
-              if (Math.abs(first - second) === 2) {
-                // N-S or E-W
-                type = "I";
-                rotation = first === 0 || first === 2 ? 0 : 1; // 0 for N-S (│), 1 for E-W (─)
-              } else {
-                type = "L";
-                if (connections[0] && connections[1]) rotation = 0; // N-E (┘)
-                else if (connections[1] && connections[2])
-                  rotation = 1; // E-S (└)
-                else if (connections[2] && connections[3])
-                  rotation = 2; // S-W (┌)
-                else if (connections[0] && connections[3])
-                  rotation = 3; // N-W (┐)
-                else rotation = 0;
-              }
-            } else if (numConnections === 3) {
-              type = "T";
-              if (!connections[2]) rotation = 0; // Not S: N-E-W (┤)
-              else if (!connections[3]) rotation = 1; // Not W: N-E-S (┴)
-              else if (!connections[0]) rotation = 2; // Not N: E-S-W (├)
-              else if (!connections[1]) rotation = 3; // Not E: N-S-W (┬)
-              else rotation = 0;
-            } else if (numConnections === 4) {
-              type = "X";
-              rotation = 0;
-            } else {
-              console.warn(
-                `Path cell ${r},${c} has unexpected ${numConnections} connections. Defaulting to 'I'.`
-              );
-              type = "I";
-              rotation = 0;
+            for (let c = N - 1; c >= 0; c--) cells.push([r, c]);
+          }
+        }
+        // neighbor map
+        const dirs = {
+          up: [-1, 0],
+          right: [0, 1],
+          down: [1, 0],
+          left: [0, -1],
+        };
+        grid = Array.from({ length: N }, () => Array(N).fill(null));
+        for (let i = 0; i < cells.length; i++) {
+          const [r, c] = cells[i];
+          const conns = [];
+          if (i > 0) {
+            const [pr, pc] = cells[i - 1];
+            for (let d in dirs) {
+              if (pr === r + dirs[d][0] && pc === c + dirs[d][1]) conns.push(d);
             }
           }
-          pathTilesData[`${r}-${c}`] = { type, rotation, isPath: true };
-        }
-        return pathTilesData;
-      }
-
-      function generatePuzzle() {
-        gameSolved = false;
-        solutionPathCellsSet.clear();
-        puzzleStatusEl.textContent = "Puzzle in progress...";
-        puzzleStatusEl.className = "";
-
-        if (numRows <= 3 && numCols <= 3) {
-          startPos = { r: 0, c: 0 };
-          endPos = { r: numRows - 1, c: numCols - 1 };
-        } else {
-          startPos = {
-            r: Math.floor(Math.random() * Math.floor(numRows / 2)),
-            c: Math.floor(Math.random() * Math.floor(numCols / 2)),
-          };
-          endPos = {
-            r:
-              numRows - 1 - Math.floor(Math.random() * Math.floor(numRows / 2)),
-            c:
-              numCols - 1 - Math.floor(Math.random() * Math.floor(numCols / 2)),
+          if (i < cells.length - 1) {
+            const [nr, nc] = cells[i + 1];
+            for (let d in dirs) {
+              if (nr === r + dirs[d][0] && nc === c + dirs[d][1]) conns.push(d);
+            }
+          }
+          // determine type and correct rotation
+          let type, correct;
+          if (conns.length === 1) {
+            type = "end";
+            correct = rotateFor(["right"], conns);
+          } else {
+            // straight if opposite, else curve
+            if (
+              (conns.includes("left") && conns.includes("right")) ||
+              (conns.includes("up") && conns.includes("down"))
+            )
+              type = "straight";
+            else type = "curve";
+            correct = rotateFor(
+              type === "straight" ? ["right", "left"] : ["up", "right"],
+              conns
+            );
+          }
+          // locked?
+          const locked = Math.random() * 100 < lockedPercent;
+          const rot = locked
+            ? correct
+            : (correct + (Math.floor(Math.random() * 3) + 1) * 90) % 360;
+          grid[r][c] = {
+            type,
+            correct,
+            rotation: rot,
+            locked,
+            special: i === 0 ? "start" : i === cells.length - 1 ? "end" : null,
           };
         }
-
-        if (startPos.r === endPos.r && startPos.c === endPos.c) {
-          if (numCols > 1) endPos.c = numCols - 1 - startPos.c;
-          if (startPos.r === endPos.r && startPos.c === endPos.c && numRows > 1)
-            endPos.r = numRows - 1 - startPos.r;
-          if (startPos.r === endPos.r && startPos.c === endPos.c) {
-            puzzleStatusEl.textContent =
-              "Error: Cannot place start/end distinctly. Try larger grid or different dimensions.";
-            return;
-          }
-        }
-
-        const solutionData = createSolutionPath(
-          numRows,
-          numCols,
-          startPos.r,
-          startPos.c,
-          endPos.r,
-          endPos.c
-        );
-        // console.log("Solution path data:", solutionData);
-        if (!solutionData) {
-          puzzleStatusEl.textContent =
-            "Error generating solution path. Try again or adjust size.";
-          return;
-        }
-
-        board = Array(numRows)
-          .fill(null)
-          .map(() => Array(numCols).fill(null));
-        const tileTypes = ["I", "L", "T", "X"];
-
-        for (let r = 0; r < numRows; r++) {
-          for (let c = 0; c < numCols; c++) {
-            const key = `${r}-${c}`;
-            const isStart = r === startPos.r && c === startPos.c;
-            const isEnd = r === endPos.r && c === endPos.c;
-
-            if (solutionData[key]) {
-              const { type, rotation } = solutionData[key];
-              board[r][c] = {
-                type: type,
-                rotation: rotation,
-                locked: isStart || isEnd,
-                isStart: isStart,
-                isEnd: isEnd,
-                onSolutionPath: true,
-              };
-            } else {
-              const randomType =
-                tileTypes[Math.floor(Math.random() * tileTypes.length)];
-              const def = TILE_DEFINITIONS[randomType];
-              const randomRotation = Math.floor(
-                Math.random() * def.connections.length
-              );
-              board[r][c] = {
-                type: randomType,
-                rotation: randomRotation,
-                locked: false,
-                isStart: false,
-                isEnd: false,
-                onSolutionPath: false,
-              };
-            }
-          }
-        }
-
-        const tilesToConsiderLocking = [];
-        for (let r = 0; r < numRows; r++) {
-          for (let c = 0; c < numCols; c++) {
-            if (!board[r][c].isStart && !board[r][c].isEnd) {
-              tilesToConsiderLocking.push({
-                r,
-                c,
-                onPath: board[r][c].onSolutionPath,
-              });
-            }
-          }
-        }
-        shuffleArray(tilesToConsiderLocking);
-        let numAdditionalLock = Math.floor(
-          (numRows * numCols - 2) * lockedTilePercentage
-        );
-        let lockedCount = 0;
-        const pathLockTargetRatio = 0.7;
-        for (const tileLoc of tilesToConsiderLocking) {
-          if (lockedCount >= numAdditionalLock) break;
-          let shouldLock = false;
-          if (
-            tileLoc.onPath &&
-            numAdditionalLock * pathLockTargetRatio > lockedCount
-          ) {
-            shouldLock = true;
-          } else if (!tileLoc.onPath) {
-            shouldLock = true;
-          }
-          if (
-            lockedCount < numAdditionalLock &&
-            !board[tileLoc.r][tileLoc.c].locked
-          ) {
-            // Fallback
-            shouldLock = true;
-          }
-          if (shouldLock && !board[tileLoc.r][tileLoc.c].locked) {
-            board[tileLoc.r][tileLoc.c].locked = true;
-            lockedCount++;
-          }
-        }
-        for (const tileLoc of tilesToConsiderLocking) {
-          // Ensure quota met
-          if (lockedCount >= numAdditionalLock) break;
-          if (!board[tileLoc.r][tileLoc.c].locked) {
-            board[tileLoc.r][tileLoc.c].locked = true;
-            lockedCount++;
-          }
-        }
-
-        for (let r = 0; r < numRows; r++) {
-          for (let c = 0; c < numCols; c++) {
-            const tile = board[r][c];
-            if (!tile.locked) {
-              const def = TILE_DEFINITIONS[tile.type];
-              tile.rotation = Math.floor(
-                Math.random() * def.connections.length
-              );
-            }
-          }
-        }
-        renderBoard();
-        checkWinCondition();
+        draw();
       }
 
-      function renderBoard() {
-        puzzleContainer.innerHTML = "";
-        const grid = document.createElement("div");
-        grid.className = "puzzle-grid";
-        grid.style.gridTemplateColumns = `repeat(${numCols}, 1fr)`;
-        grid.style.gridTemplateRows = `repeat(${numRows}, 1fr)`;
-
-        for (let r = 0; r < numRows; r++) {
-          for (let c = 0; c < numCols; c++) {
-            const tileData = board[r][c];
-            const tileDiv = document.createElement("div");
-            tileDiv.className = "tile";
-            tileDiv.textContent = getTileChar(tileData);
-
-            if (tileData.locked) tileDiv.classList.add("locked");
-            if (tileData.isStart) tileDiv.classList.add("start-tile");
-            if (tileData.isEnd) tileDiv.classList.add("end-tile");
-
-            if (gameSolved) {
-              tileDiv.classList.add("solved-state");
-              if (solutionPathCellsSet.has(`${r}-${c}`)) {
-                tileDiv.classList.add("on-solution-path");
-              }
-            }
-
-            if (!tileData.locked && !gameSolved) {
-              tileDiv.addEventListener("click", () => onTileClick(r, c));
-            }
-            grid.appendChild(tileDiv);
-          }
+      // compute rotation to get default dirs → target conns
+      // default: straight=['right','left'], curve=['up','right'], end=['right']
+      function rotateFor(def, target) {
+        const order = [0, 90, 180, 270];
+        for (let ang of order) {
+          const got = def.map((d) => rotateDir(d, ang)).sort();
+          if (arraysEqual(got.sort(), target.sort())) return ang;
         }
-        puzzleContainer.appendChild(grid);
+        return 0;
       }
-
-      function onTileClick(r, c) {
-        if (gameSolved || board[r][c].locked) return;
-        const tile = board[r][c];
-        const def = TILE_DEFINITIONS[tile.type];
-        tile.rotation = (tile.rotation + 1) % def.connections.length;
-        renderBoard();
-        checkWinCondition();
+      function rotateDir(d, ang) {
+        const list = ["up", "right", "down", "left"];
+        return list[(list.indexOf(d) + ang / 90) % 4];
       }
-
-      function checkWinCondition() {
-        solutionPathCellsSet.clear();
-        const q = [];
-        const visited = new Set();
-        const startTileObj = board[startPos.r][startPos.c];
-        const startTileConnections = getTileActualConnections(startTileObj);
-
-        for (let dir = 0; dir < 4; dir++) {
-          if (startTileConnections[dir]) {
-            const dr = [-1, 0, 1, 0];
-            const dc = [0, 1, 0, -1];
-            const nr = startPos.r + dr[dir];
-            const nc = startPos.c + dc[dir];
-            if (nr >= 0 && nr < numRows && nc >= 0 && nc < numCols) {
-              const neighborTile = board[nr][nc];
-              const neighborConnections =
-                getTileActualConnections(neighborTile);
-              const oppositeDir = (dir + 2) % 4;
-              if (neighborConnections[oppositeDir]) {
-                q.push({
-                  r: nr,
-                  c: nc,
-                  path: [`${startPos.r}-${startPos.c}`, `${nr}-${nc}`],
-                });
-                visited.add(`${startPos.r}-${startPos.c}`);
-                visited.add(`${nr}-${nc}`);
-              }
-            }
-          }
-        }
-
-        let pathToEndFound = false;
-        let finalPath = null;
-        let head = 0;
-        while (head < q.length) {
-          const curr = q[head++];
-          const r = curr.r;
-          const c = curr.c;
-          if (r === endPos.r && c === endPos.c) {
-            pathToEndFound = true;
-            finalPath = curr.path;
-            break;
-          }
-          const currentTileConnections = getTileActualConnections(board[r][c]);
-          const dr = [-1, 0, 1, 0];
-          const dc = [0, 1, 0, -1];
-          for (let dir = 0; dir < 4; dir++) {
-            if (currentTileConnections[dir]) {
-              const nr = r + dr[dir];
-              const nc = c + dc[dir];
-              if (
-                nr >= 0 &&
-                nr < numRows &&
-                nc >= 0 &&
-                nc < numCols &&
-                !visited.has(`${nr}-${nc}`)
-              ) {
-                const neighborTile = board[nr][nc];
-                const neighborConnections =
-                  getTileActualConnections(neighborTile);
-                const oppositeDir = (dir + 2) % 4;
-                if (neighborConnections[oppositeDir]) {
-                  visited.add(`${nr}-${nc}`);
-                  const newPath = [...curr.path, `${nr}-${nc}`];
-                  q.push({ r: nr, c: nc, path: newPath });
-                }
-              }
-            }
-          }
-        }
-
-        if (!pathToEndFound) {
-          gameSolved = false;
-          if (puzzleStatusEl.textContent.includes("Solved!")) {
-            // Only revert if it was showing solved
-            puzzleStatusEl.textContent = "Puzzle in progress...";
-            puzzleStatusEl.className = "";
-          }
-          return false;
-        }
-
-        finalPath.forEach((p) => solutionPathCellsSet.add(p));
-
-        for (let r_leak = 0; r_leak < numRows; r_leak++) {
-          for (let c_leak = 0; c_leak < numCols; c_leak++) {
-            const tile = board[r_leak][c_leak];
-            const connections = getTileActualConnections(tile);
-            const dr = [-1, 0, 1, 0];
-            const dc = [0, 1, 0, -1];
-            for (let dir = 0; dir < 4; dir++) {
-              if (connections[dir]) {
-                const nr = r_leak + dr[dir];
-                const nc = c_leak + dc[dir];
-                if (nr < 0 || nr >= numRows || nc < 0 || nc >= numCols) {
-                  gameSolved = false;
-                  if (puzzleStatusEl.textContent.includes("Solved!")) {
-                    // Avoid changing status during initial check on fresh puzzle
-                    puzzleStatusEl.textContent = "Leak detected! (Edge)";
-                    puzzleStatusEl.className = "";
-                  }
-                  return false;
-                }
-                const neighborTile = board[nr][nc];
-                const neighborConnections =
-                  getTileActualConnections(neighborTile);
-                const oppositeDir = (dir + 2) % 4;
-                if (!neighborConnections[oppositeDir]) {
-                  gameSolved = false;
-                  if (puzzleStatusEl.textContent.includes("Solved!")) {
-                    puzzleStatusEl.textContent = "Leak detected! (Mismatch)";
-                    puzzleStatusEl.className = "";
-                  }
-                  return false;
-                }
-              }
-            }
-          }
-        }
-
-        gameSolved = true;
-        puzzleStatusEl.textContent = "Solved!";
-        puzzleStatusEl.className = "solved";
-        // renderBoard(); // renderBoard is called by onTileClick or generatePuzzle, avoid calling twice if from there
+      function arraysEqual(a, b) {
+        if (a.length !== b.length) return false;
+        for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
         return true;
       }
 
-      function createTestTile(
-        type,
-        rotation,
-        locked = false,
-        isStart = false,
-        isEnd = false
-      ) {
-        return {
-          type,
-          rotation,
-          locked,
-          isStart,
-          isEnd,
-          onSolutionPath: false,
-        };
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        for (let r = 0; r < N; r++)
+          for (let c = 0; c < N; c++) {
+            const x = c * TILE,
+              y = r * TILE;
+            const t = grid[r][c];
+            ctx.save();
+            ctx.translate(x + TILE / 2, y + TILE / 2);
+            ctx.rotate((t.rotation * Math.PI) / 180);
+            // draw pipe
+            ctx.lineWidth = TILE / 5;
+            ctx.lineCap = "butt";
+            ctx.strokeStyle = t.locked ? "#888" : "#3498db";
+            if (t.type === "straight") {
+              ctx.beginPath();
+              ctx.moveTo(-TILE / 2 + 5, 0);
+              ctx.lineTo(TILE / 2 - 5, 0);
+              ctx.stroke();
+            } else if (t.type === "curve") {
+              ctx.beginPath();
+              ctx.moveTo(0, 0);
+              ctx.lineTo(0, -TILE / 2 + 5);
+              ctx.moveTo(0, 0);
+              ctx.lineTo(TILE / 2 - 5, 0);
+              ctx.stroke();
+            } else if (t.type === "end") {
+              ctx.beginPath();
+              ctx.moveTo(0, 0);
+              ctx.lineTo(TILE / 2 - 5, 0);
+              ctx.stroke();
+            }
+            // special markers
+            if (t.special === "start") {
+              ctx.fillStyle = "green";
+              ctx.beginPath();
+              ctx.arc(0, 0, TILE / 6, 0, 2 * Math.PI);
+              ctx.fill();
+            } else if (t.special === "end") {
+              ctx.fillStyle = "red";
+              ctx.beginPath();
+              ctx.arc(0, 0, TILE / 6, 0, 2 * Math.PI);
+              ctx.fill();
+            }
+            ctx.restore();
+          }
       }
 
-      function runUnitTests() {
-        console.log(
-          "%cRunning Unit Tests for checkWinCondition...",
-          "color: blue; font-weight: bold;"
-        );
-        puzzleStatusEl.textContent = "Running unit tests...";
-        puzzleStatusEl.className = "testing";
+      function checkSolution() {
+        // build map of connections
+        const dirVec = {
+          up: [-1, 0],
+          right: [0, 1],
+          down: [1, 0],
+          left: [0, -1],
+        };
+        for (let r = 0; r < N; r++)
+          for (let c = 0; c < N; c++) {
+            const t = grid[r][c];
+            // get its current dirs
+            const def =
+              t.type === "straight"
+                ? ["right", "left"]
+                : t.type === "curve"
+                ? ["up", "right"]
+                : ["right"];
+            const now = def.map((d) => rotateDir(d, t.rotation));
+            // must match degree: ends degree1, others degree2
+            if ((t.special ? "endOrStart" : "normal") === "normal") {
+              if (now.length !== 2) return false;
+            } else {
+              if (now.length !== 1) return false;
+            }
+            // adjacency check
+            for (let d of now) {
+              const [dr, dc] = dirVec[d];
+              const nr = r + dr,
+                nc = c + dc;
+              if (nr < 0 || nr >= N || nc < 0 || nc >= N) return false;
+              const other = grid[nr][nc];
+              // check other has opposite
+              const opp = {
+                up: "down",
+                down: "up",
+                left: "right",
+                right: "left",
+              }[d];
+              const odef =
+                other.type === "straight"
+                  ? ["right", "left"]
+                  : other.type === "curve"
+                  ? ["up", "right"]
+                  : ["right"];
+              const onow = odef.map((dd) => rotateDir(dd, other.rotation));
+              if (!onow.includes(opp)) return false;
+            }
+          }
+        return true;
+      }
 
-        let testsPassed = 0;
-        let testsFailed = 0;
-        const originalGlobals = {
-          numRows,
-          numCols,
-          board,
-          startPos,
-          endPos,
-          gameSolved,
-        }; // Save original game state
-
-        function assert(condition, message) {
-          if (condition) {
-            testsPassed++;
-            // console.log(`%cPASS: ${message}`, "color: green;"); // Optional: log passes
-          } else {
-            testsFailed++;
-            console.error(`Test FAILED: ${message}`);
+      canvas.addEventListener("click", (e) => {
+        const c = Math.floor(e.offsetX / TILE);
+        const r = Math.floor(e.offsetY / TILE);
+        if (r >= 0 && r < N && c >= 0 && c < N) {
+          const t = grid[r][c];
+          if (!t.locked) {
+            t.rotation = (t.rotation + 90) % 360;
+            draw();
+            if (checkSolution()) {
+              setTimeout(() => alert("🎉 Puzzle solved!"), 50);
+            }
           }
         }
-
-        // --- Test Case 1: Simple Solvable Path (1x3) ---
-        {
-          const testName =
-            "Test Case 1: Simple Solvable Path (1x3: S(E) - I(EW) - E(W))";
-          console.log(`Running: ${testName}`);
-          numRows = 1;
-          numCols = 3;
-          board = Array(numRows)
-            .fill(null)
-            .map(() => Array(numCols).fill(null));
-          startPos = { r: 0, c: 0 };
-          endPos = { r: 0, c: 2 };
-          // START rot 0 (Exits E); I rot 1 (E-W); END rot 2 (Accepts W / Open W)
-          board[0][0] = createTestTile("START", 0, true, true);
-          board[0][1] = createTestTile("I", 1);
-          board[0][2] = createTestTile("END", 2, true, false, true);
-          gameSolved = false;
-
-          let actualResult = checkWinCondition();
-          assert(actualResult === true, `${testName} (result)`);
-          assert(gameSolved === true, `${testName} (gameSolved state)`);
-          assert(
-            solutionPathCellsSet.has("0-0") &&
-              solutionPathCellsSet.has("0-1") &&
-              solutionPathCellsSet.has("0-2"),
-            `${testName} (path cells)`
-          );
-        }
-
-        // --- Test Case 2: Path Exists, but Leak to Edge ---
-        {
-          const testName = "Test Case 2: Path Exists, but Leak to Edge";
-          console.log(`Running: ${testName}`);
-          numRows = 2;
-          numCols = 2;
-          board = Array(numRows)
-            .fill(null)
-            .map(() => Array(numCols).fill(null));
-          startPos = { r: 0, c: 0 };
-          endPos = { r: 1, c: 0 };
-          // Path: S(0,0) South -> E(1,0) North
-          board[0][0] = createTestTile("START", 1, true, true); // Exits South
-          board[1][0] = createTestTile("END", 3, true, false, true); // Accepts North
-          // Leaking tile L(0,1) points North (to edge)
-          board[0][1] = createTestTile("L", 0); // N-E (┘). N connection to edge.
-          board[1][1] = createTestTile("X", 0); // Filler
-          gameSolved = false;
-
-          let actualResult = checkWinCondition();
-          assert(actualResult === false, `${testName} (result)`);
-          assert(gameSolved === false, `${testName} (gameSolved state)`);
-        }
-
-        // --- Test Case 3: No Path Between Start and End ---
-        {
-          const testName = "Test Case 3: No Path (Start points into wall)";
-          console.log(`Running: ${testName}`);
-          numRows = 2;
-          numCols = 1;
-          board = Array(numRows)
-            .fill(null)
-            .map(() => Array(numCols).fill(null));
-          startPos = { r: 0, c: 0 };
-          endPos = { r: 1, c: 0 };
-          board[0][0] = createTestTile("START", 0, true, true); // Exits East (into wall)
-          board[1][0] = createTestTile("END", 3, true, false, true); // Accepts North
-          gameSolved = false;
-
-          let actualResult = checkWinCondition();
-          assert(actualResult === false, `${testName} (result)`);
-          assert(gameSolved === false, `${testName} (gameSolved state)`);
-        }
-
-        // --- Test Case 4: Path to End, but End Tile Misaligned ---
-        {
-          const testName = "Test Case 4: Path to End, but End Tile Misaligned";
-          console.log(`Running: ${testName}`);
-          numRows = 2;
-          numCols = 1;
-          board = Array(numRows)
-            .fill(null)
-            .map(() => Array(numCols).fill(null));
-          startPos = { r: 0, c: 0 };
-          endPos = { r: 1, c: 0 };
-          board[0][0] = createTestTile("START", 1, true, true); // Exits South
-          board[1][0] = createTestTile("END", 0, true, false, true); // Accepts East, path from North
-          gameSolved = false;
-
-          let actualResult = checkWinCondition();
-          assert(actualResult === false, `${testName} (result)`);
-          assert(gameSolved === false, `${testName} (gameSolved state)`);
-        }
-
-        // --- Test Case 5: Solvable 2x2 Spiral Path ---
-        {
-          const testName = "Test Case 5: Solvable 2x2 Spiral Path";
-          console.log(`Running: ${testName}`);
-          numRows = 2;
-          numCols = 2;
-          board = Array(numRows)
-            .fill(null)
-            .map(() => Array(numCols).fill(null));
-          startPos = { r: 0, c: 0 };
-          endPos = { r: 1, c: 0 };
-          // S(0,0) E -> L(0,1) S-W accepts W, connects S -> L(1,1) N-W accepts N, connects W -> E(1,0) accepts E
-          board[0][0] = createTestTile("START", 0, true, true); // Exits E
-          board[0][1] = createTestTile("L", 2); // S-W (┌), char ┌. Accepts W, outputs S.
-          board[1][1] = createTestTile("L", 3); // N-W (┐), char ┐. Accepts N, outputs W.
-          board[1][0] = createTestTile("END", 0, true, false, true); // Accepts E / Open E
-          gameSolved = false;
-
-          let actualResult = checkWinCondition();
-          assert(actualResult === true, `${testName} (result)`);
-          assert(gameSolved === true, `${testName} (gameSolved state)`);
-          assert(solutionPathCellsSet.size === 4, `${testName} (path length)`);
-        }
-
-        // --- Test Case 6: Path Blocked by Misrotated Tile ---
-        {
-          const testName = "Test Case 6: Path Blocked by Misrotated Tile";
-          console.log(`Running: ${testName}`);
-          numRows = 1;
-          numCols = 3;
-          board = Array(numRows)
-            .fill(null)
-            .map(() => Array(numCols).fill(null));
-          startPos = { r: 0, c: 0 };
-          endPos = { r: 0, c: 2 };
-          board[0][0] = createTestTile("START", 0, true, true); // Exits E
-          board[0][1] = createTestTile("I", 0); // Vertical (N-S), path needs E-W
-          board[0][2] = createTestTile("END", 2, true, false, true); // Accepts W
-          gameSolved = false;
-
-          let actualResult = checkWinCondition();
-          assert(actualResult === false, `${testName} (result)`);
-          assert(gameSolved === false, `${testName} (gameSolved state)`);
-        }
-
-        // --- Test Case 7: Path exists, but internal mismatch (leak) ---
-        {
-          const testName =
-            "Test Case 7: Path exists, but internal mismatch (leak)";
-          console.log(`Running: ${testName}`);
-          numRows = 1;
-          numCols = 3;
-          board = Array(numRows)
-            .fill(null)
-            .map(() => Array(numCols).fill(null));
-          startPos = { r: 0, c: 0 };
-          endPos = { r: 0, c: 2 };
-          board[0][0] = createTestTile("START", 0, true, true); // Exits E
-          board[0][1] = createTestTile("L", 0); // N-E (┘). Connects E to END.
-          // But does not connect W to START.
-          // START connects E. L needs to accept W. L rot 0 doesn't.
-          // So path not found.
-          // Let's make path findable, then leak.
-          // S(E) -> I(EW) -> E(W) (path)
-          // Add a T tile at (0,1) which connects E-W for the path, but also N into nothing.
-          // This will be a path with leak.
-          numRows = 2;
-          numCols = 3; // Make space for leak
-          board = Array(numRows)
-            .fill(null)
-            .map(() => Array(numCols).fill(null));
-          startPos = { r: 0, c: 0 };
-          endPos = { r: 0, c: 2 };
-
-          board[0][0] = createTestTile("START", 0, true, true); // Exits E
-          board[0][1] = createTestTile("T", 3); // N-S-W (┬). Path needs E-W. T rot 3 has W, but not E.
-          // TILE_DEFINITIONS.T.connections[0] = N-E-W (┤)
-          board[0][1] = createTestTile("T", 0); // N-E-W (┤). Connects E-W, but N is open.
-          // N connects to (non-existent tile or edge if r=-1)
-          // dr[-1] for N. (0-1 = -1). So N is edge.
-          board[0][2] = createTestTile("END", 2, true, false, true); // Accepts W
-          board[1][0] = createTestTile("X", 0);
-          board[1][1] = createTestTile("X", 0);
-          board[1][2] = createTestTile("X", 0); // Fillers
-          gameSolved = false;
-
-          let actualResult = checkWinCondition();
-          assert(actualResult === false, `${testName} (result)`);
-          assert(gameSolved === false, `${testName} (gameSolved state)`);
-          // Path from S to E is found by BFS. S(0,0)-E -> T(0,1)-N-E-W. T accepts E, connects W -> E(0,2)-W.
-          // But T(0,1) also connects N to edge. So leak.
-          assert(
-            solutionPathCellsSet.has("0-0") &&
-              solutionPathCellsSet.has("0-1") &&
-              solutionPathCellsSet.has("0-2"),
-            `${testName} (path cells before leak check)`
-          );
-        }
-
-        console.log(
-          `%cUnit Tests Complete. Passed: ${testsPassed}, Failed: ${testsFailed}`,
-          `color: ${testsFailed > 0 ? "red" : "green"}; font-weight: bold;`
-        );
-
-        // Restore original game state for the actual game
-        numRows = originalGlobals.numRows;
-        numCols = originalGlobals.numCols;
-        board = originalGlobals.board; // This will be overwritten by generatePuzzle anyway
-        startPos = originalGlobals.startPos;
-        endPos = originalGlobals.endPos;
-        gameSolved = originalGlobals.gameSolved;
-        solutionPathCellsSet.clear(); // Clear any test path
-
-        if (testsFailed > 0) {
-          puzzleStatusEl.textContent = `Unit tests FAILED: ${testsFailed}. Check console. Initializing game...`;
-          puzzleStatusEl.className = "test-failed";
-        } else {
-          puzzleStatusEl.textContent =
-            "Unit tests PASSED. Initializing game...";
-          puzzleStatusEl.className = "solved"; // Visually indicates tests passed
-        }
-      }
-
-      startPuzzleButton.addEventListener("click", () => {
-        numRows = parseInt(boardSizeRowsInput.value);
-        numCols = parseInt(boardSizeColsInput.value);
-        if (isNaN(numRows) || numRows < 3 || numRows > 15) {
-          alert("Board rows must be between 3 and 15.");
-          boardSizeRowsInput.value = String(
-            Math.max(3, Math.min(15, numRows || 5))
-          );
-          return;
-        }
-        if (isNaN(numCols) || numCols < 3 || numCols > 15) {
-          alert("Board columns must be between 3 and 15.");
-          boardSizeColsInput.value = String(
-            Math.max(3, Math.min(15, numCols || 5))
-          );
-          return;
-        }
-        lockedTilePercentage = parseFloat(lockedLevelSelect.value);
-        generatePuzzle();
       });
 
-      // Run tests on page load, then initialize the puzzle
-      runUnitTests();
-      generatePuzzle(); // This will set up the initial puzzle for the player
+      document.getElementById("generate").onclick = initPuzzle;
+      // initial
+      initPuzzle();
     </script>
   </body>
 </html>
