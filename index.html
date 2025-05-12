@@ -44,15 +44,20 @@
       const ctx = canvas.getContext("2d");
       const TILE = 60;
 
-      let grid = [],
-        N,
-        lockedPercent;
+      // Global game state
+      let state;
 
-      function initPuzzle() {
-        N = parseInt(document.getElementById("size").value);
-        lockedPercent = parseInt(document.getElementById("locked").value);
+      /**
+       * Initialize a new puzzle state.
+       * @param {number} size - grid dimension (NxN)
+       * @param {number} lockedPercent - percentage of tiles locked
+       * @returns {{N: number, lockedPercent: number, grid: Array<Array<Object>>>}}
+       */
+      function initPuzzle(size, lockedPercent) {
+        const N = size;
         canvas.width = canvas.height = N * TILE;
-        // build snake‐path Hamiltonian chain
+
+        // Build Hamiltonian snake path
         const cells = [];
         for (let r = 0; r < N; r++) {
           if (r % 2 === 0) {
@@ -61,97 +66,94 @@
             for (let c = N - 1; c >= 0; c--) cells.push([r, c]);
           }
         }
-        // neighbor map
+
         const dirs = {
           up: [-1, 0],
           right: [0, 1],
           down: [1, 0],
           left: [0, -1],
         };
-        grid = Array.from({ length: N }, () => Array(N).fill(null));
+        const grid = Array.from({ length: N }, () => Array(N));
+
         for (let i = 0; i < cells.length; i++) {
           const [r, c] = cells[i];
           const conns = [];
+          // Previous connection
           if (i > 0) {
             const [pr, pc] = cells[i - 1];
             for (let d in dirs) {
               if (pr === r + dirs[d][0] && pc === c + dirs[d][1]) conns.push(d);
             }
           }
+          // Next connection
           if (i < cells.length - 1) {
             const [nr, nc] = cells[i + 1];
             for (let d in dirs) {
               if (nr === r + dirs[d][0] && nc === c + dirs[d][1]) conns.push(d);
             }
           }
-          // determine type and correct rotation
+
+          // Determine tile type and correct rotation
           let type, correct;
           if (conns.length === 1) {
             type = "end";
             correct = rotateFor(["right"], conns);
           } else {
-            // straight if opposite, else curve
             if (
               (conns.includes("left") && conns.includes("right")) ||
               (conns.includes("up") && conns.includes("down"))
-            )
+            ) {
               type = "straight";
-            else type = "curve";
+            } else {
+              type = "curve";
+            }
             correct = rotateFor(
               type === "straight" ? ["right", "left"] : ["up", "right"],
               conns
             );
           }
-          // locked?
+
+          // Lock logic and initial rotation
           const locked = Math.random() * 100 < lockedPercent;
-          const rot = locked
+          const rotation = locked
             ? correct
             : (correct + (Math.floor(Math.random() * 3) + 1) * 90) % 360;
+
           grid[r][c] = {
             type,
             correct,
-            rotation: rot,
+            rotation,
             locked,
             special: i === 0 ? "start" : i === cells.length - 1 ? "end" : null,
           };
         }
-        draw();
+
+        return { N, lockedPercent, grid };
       }
 
-      // compute rotation to get default dirs → target conns
-      // default: straight=['right','left'], curve=['up','right'], end=['right']
-      function rotateFor(def, target) {
-        const order = [0, 90, 180, 270];
-        for (let ang of order) {
-          const got = def.map((d) => rotateDir(d, ang)).sort();
-          if (arraysEqual(got.sort(), target.sort())) return ang;
-        }
-        return 0;
-      }
-      function rotateDir(d, ang) {
-        const list = ["up", "right", "down", "left"];
-        return list[(list.indexOf(d) + ang / 90) % 4];
-      }
-      function arraysEqual(a, b) {
-        if (a.length !== b.length) return false;
-        for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
-        return true;
-      }
-
-      function draw() {
+      /**
+       * Draw the puzzle from state
+       * @param {{N: number, grid: Array<Array<Object>>>} state
+       */
+      function draw(state) {
+        const { N, grid } = state;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        for (let r = 0; r < N; r++)
+
+        for (let r = 0; r < N; r++) {
           for (let c = 0; c < N; c++) {
-            const x = c * TILE,
-              y = r * TILE;
             const t = grid[r][c];
+            const x = c * TILE;
+            const y = r * TILE;
+
             ctx.save();
             ctx.translate(x + TILE / 2, y + TILE / 2);
             ctx.rotate((t.rotation * Math.PI) / 180);
-            // draw pipe
+
             ctx.lineWidth = TILE / 5;
             ctx.lineCap = "butt";
             ctx.strokeStyle = t.locked ? "#888" : "#3498db";
+
+            // Pipe shapes
             if (t.type === "straight") {
               ctx.beginPath();
               ctx.moveTo(-TILE / 2 + 5, 0);
@@ -170,7 +172,8 @@
               ctx.lineTo(TILE / 2 - 5, 0);
               ctx.stroke();
             }
-            // special markers
+
+            // Start/end markers
             if (t.special === "start") {
               ctx.fillStyle = "green";
               ctx.beginPath();
@@ -182,22 +185,29 @@
               ctx.arc(0, 0, TILE / 6, 0, 2 * Math.PI);
               ctx.fill();
             }
+
             ctx.restore();
           }
+        }
       }
 
-      function checkSolution() {
-        // build map of connections
+      /**
+       * Check if puzzle is solved
+       * @param {{N: number, grid: Array<Array<Object>>>} state
+       * @returns {boolean}
+       */
+      function checkSolution(state) {
+        const { N, grid } = state;
         const dirVec = {
           up: [-1, 0],
           right: [0, 1],
           down: [1, 0],
           left: [0, -1],
         };
-        for (let r = 0; r < N; r++)
+
+        for (let r = 0; r < N; r++) {
           for (let c = 0; c < N; c++) {
             const t = grid[r][c];
-            // get its current dirs
             const def =
               t.type === "straight"
                 ? ["right", "left"]
@@ -205,20 +215,18 @@
                 ? ["up", "right"]
                 : ["right"];
             const now = def.map((d) => rotateDir(d, t.rotation));
-            // must match degree: ends degree1, others degree2
-            if ((t.special ? "endOrStart" : "normal") === "normal") {
-              if (now.length !== 2) return false;
-            } else {
-              if (now.length !== 1) return false;
-            }
-            // adjacency check
+
+            // Degree check
+            const requiredDegree = t.special ? 1 : 2;
+            if (now.length !== requiredDegree) return false;
+
+            // Adjacency
             for (let d of now) {
               const [dr, dc] = dirVec[d];
-              const nr = r + dr,
-                nc = c + dc;
+              const nr = r + dr;
+              const nc = c + dc;
               if (nr < 0 || nr >= N || nc < 0 || nc >= N) return false;
               const other = grid[nr][nc];
-              // check other has opposite
               const opp = {
                 up: "down",
                 down: "up",
@@ -235,27 +243,55 @@
               if (!onow.includes(opp)) return false;
             }
           }
+        }
         return true;
       }
 
+      // Helpers for rotation math
+      function rotateFor(def, target) {
+        const order = [0, 90, 180, 270];
+        for (let ang of order) {
+          const got = def.map((d) => rotateDir(d, ang)).sort();
+          if (arraysEqual(got, target.slice().sort())) return ang;
+        }
+        return 0;
+      }
+      function rotateDir(d, ang) {
+        const list = ["up", "right", "down", "left"];
+        return list[(list.indexOf(d) + ang / 90) % 4];
+      }
+      function arraysEqual(a, b) {
+        return a.length === b.length && a.every((v, i) => v === b[i]);
+      }
+
+      // Event handlers
       canvas.addEventListener("click", (e) => {
+        if (!state) return;
         const c = Math.floor(e.offsetX / TILE);
         const r = Math.floor(e.offsetY / TILE);
-        if (r >= 0 && r < N && c >= 0 && c < N) {
-          const t = grid[r][c];
-          if (!t.locked) {
-            t.rotation = (t.rotation + 90) % 360;
-            draw();
-            if (checkSolution()) {
-              setTimeout(() => alert("🎉 Puzzle solved!"), 50);
-            }
+        const t = state.grid[r][c];
+        if (!t.locked) {
+          t.rotation = (t.rotation + 90) % 360;
+          draw(state);
+          if (checkSolution(state)) {
+            setTimeout(() => alert("🎉 Puzzle solved!"), 50);
           }
         }
       });
 
-      document.getElementById("generate").onclick = initPuzzle;
-      // initial
-      initPuzzle();
+      document.getElementById("generate").onclick = () => {
+        const size = parseInt(document.getElementById("size").value, 10);
+        const lockedPct = parseInt(document.getElementById("locked").value, 10);
+        state = initPuzzle(size, lockedPct);
+        draw(state);
+      };
+
+      // Initial load
+      state = initPuzzle(
+        parseInt(document.getElementById("size").value, 10),
+        parseInt(document.getElementById("locked").value, 10)
+      );
+      draw(state);
     </script>
   </body>
 </html>
