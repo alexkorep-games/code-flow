@@ -27,6 +27,7 @@
         border-radius: 8px;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         display: flex;
+        flex-wrap: wrap; /* Allow wrapping for smaller screens */
         gap: 15px;
         align-items: center;
       }
@@ -70,6 +71,10 @@
         color: #2ecc71;
       }
 
+      #puzzle-container {
+        margin-top: 10px; /* Added some margin */
+      }
+
       .puzzle-grid {
         display: grid;
         border: 2px solid #34495e;
@@ -85,7 +90,7 @@
         display: flex;
         justify-content: center;
         align-items: center;
-        font-size: 28px; /* Adjust for unicode character size */
+        font-size: 28px;
         cursor: pointer;
         user-select: none;
         transition: background-color 0.2s ease;
@@ -98,7 +103,7 @@
 
       .tile.locked {
         cursor: not-allowed;
-        background-color: #d0d0d0; /* Light gray for locked */
+        background-color: #d0d0d0;
         color: #7f8c8d;
       }
 
@@ -108,21 +113,20 @@
       }
 
       .tile.start-tile {
-        background-color: #2ecc71; /* Greenish */
+        background-color: #2ecc71;
         color: white;
       }
 
       .tile.end-tile {
-        background-color: #e74c3c; /* Reddish */
+        background-color: #e74c3c;
         color: white;
       }
 
-      /* For highlighting solved path if desired */
       .tile.on-solution-path.solved-state {
-        background-color: #a2f2c0; /* Light green for path */
+        background-color: #a2f2c0;
       }
       .tile.solved-state:not(.on-solution-path) {
-        background-color: #f5f5f5; /* Slightly off-white for non-path tiles when solved */
+        background-color: #f5f5f5;
       }
     </style>
   </head>
@@ -130,9 +134,9 @@
     <h1>Code Flow Puzzle</h1>
 
     <div class="controls">
-      <label for="board-size">Board Size:</label>
+      <label for="board-size">Rows:</label>
       <input type="number" id="board-size" value="5" min="3" max="15" />
-      <span>x</span>
+      <label for="board-size-cols">Cols:</label>
       <input type="number" id="board-size-cols" value="5" min="3" max="15" />
 
       <label for="locked-level">Locked Tiles:</label>
@@ -152,8 +156,6 @@
 
     <script>
       const TILE_DEFINITIONS = {
-        // Connections: [N, E, S, W] boolean array for open sides
-        // Chars: Array of Unicode characters for each rotation
         I: {
           connections: [
             [true, false, true, false],
@@ -168,7 +170,7 @@
             [false, false, true, true],
             [true, false, false, true],
           ],
-          chars: ["┘", "└", "┌", "┐"], // N-E, E-S, S-W, W-N
+          chars: ["┘", "└", "┌", "┐"],
         },
         T: {
           connections: [
@@ -177,7 +179,7 @@
             [false, true, true, true],
             [true, false, true, true],
           ],
-          chars: ["┤", "┴", "├", "┬"], // N-E-W (T points S), N-E-S (T points W), E-S-W (T points N), N-S-W (T points E)
+          chars: ["┤", "┴", "├", "┬"],
         },
         X: {
           connections: [[true, true, true, true]],
@@ -189,8 +191,8 @@
             [false, false, true, false],
             [false, false, false, true],
             [true, false, false, false],
-          ],
-          chars: ["►", "▼", "◄", "▲"], // Points E, S, W, N
+          ], // Base connection: East, South, West, North (for rotations 0,1,2,3)
+          chars: ["►", "▼", "◄", "▲"], // Rot 0 points E, Rot 1 points S, Rot 2 points W, Rot 3 points N
           isSpecial: true,
         },
         END: {
@@ -199,15 +201,11 @@
             [false, false, true, false],
             [false, false, false, true],
             [true, false, false, false],
-          ],
-          chars: ["⦿", "⦿", "⦿", "⦿"], // Using a generic 'target' symbol, actual connection logic is key. Could use arrows too like START.
-          // Using same arrows as START but will be colored differently: ['►', '▼', '◄', '▲']
+          ], // Same as START, defines which side is open
+          chars: ["►", "▼", "◄", "▲"], // Visually same as START, but colored differently. Represents the 'input' side.
           isSpecial: true,
         },
       };
-
-      // Make END chars distinct if using arrows
-      TILE_DEFINITIONS.END.chars = TILE_DEFINITIONS.START.chars.map((c) => c); // ['⦿', '⦿', '⦿', '⦿'] or copy arrows
 
       let board = [];
       let numRows = 5;
@@ -216,7 +214,7 @@
       let startPos = { r: 0, c: 0 };
       let endPos = { r: 4, c: 4 };
       let gameSolved = false;
-      let solutionPathCellsSet = new Set(); // To store "r-c" strings of cells in the solution path
+      let solutionPathCellsSet = new Set();
 
       const puzzleContainer = document.getElementById("puzzle-container");
       const puzzleStatusEl = document.getElementById("puzzle-status");
@@ -238,7 +236,6 @@
         return def.chars[tile.rotation % def.chars.length];
       }
 
-      // --- Puzzle Generation ---
       function shuffleArray(array) {
         for (let i = array.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1));
@@ -246,13 +243,12 @@
         }
       }
 
-      function getNeighbors(r, c, rows, cols, includeDiagonals = false) {
+      function getNeighbors(r, c, rows, cols) {
         const neighbors = [];
-        // N, E, S, W
-        const dr = [-1, 0, 1, 0];
+        const dr = [-1, 0, 1, 0]; // N, E, S, W
         const dc = [0, 1, 0, -1];
-        const dirs = [0, 1, 2, 3]; // 0:N, 1:E, 2:S, 3:W
-        const oppositeDirs = [2, 3, 0, 1];
+        const dirs = [0, 1, 2, 3]; // 0:N, 1:E, 2:S, 3:W connection FROM current cell
+        const oppositeDirs = [2, 3, 0, 1]; // Connection TO current cell from neighbor
 
         for (let i = 0; i < 4; i++) {
           const nr = r + dr[i];
@@ -266,7 +262,6 @@
             });
           }
         }
-        // Add diagonal later if needed
         return neighbors;
       }
 
@@ -288,7 +283,8 @@
         let generatedPathCells = null;
 
         while (stack.length > 0) {
-          const { r, c, pathCells } = stack.pop();
+          const current = stack.pop(); // Use DFS for potentially more complex paths
+          const { r, c, pathCells } = current;
 
           if (r === endR && c === endC) {
             generatedPathCells = pathCells;
@@ -305,20 +301,11 @@
               const newPathCells = pathCells.map((pc) => ({
                 ...pc,
                 connections: [...pc.connections],
-              })); // Deep copy path cells
+              }));
 
               let currentCellInPath = newPathCells.find(
                 (p) => p.r === r && p.c === c
               );
-              if (!currentCellInPath) {
-                // Should not happen if logic is correct
-                currentCellInPath = {
-                  r,
-                  c,
-                  connections: [false, false, false, false],
-                };
-                newPathCells.push(currentCellInPath); // Should be there already
-              }
               currentCellInPath.connections[neighbor.dir] = true;
 
               let neighborCellInPath = newPathCells.find(
@@ -347,73 +334,72 @@
 
         const pathTilesData = {};
         for (const cell of generatedPathCells) {
-          const { r, c, connections } = cell;
+          const { r, c, connections } = cell; // connections: [N, E, S, W] needed for this cell
           const numConnections = connections.filter((conn) => conn).length;
           let type, rotation;
 
           if (r === startR && c === startC) {
             type = "START";
-            const dir = connections.indexOf(true); // Direction START tile points
-            // START base is E [F,T,F,F]. Rotations: E=0, S=1, W=2, N=3
-            if (dir === 0) rotation = 3; // N
-            else if (dir === 1) rotation = 0; // E
-            else if (dir === 2) rotation = 1; // S
-            else if (dir === 3) rotation = 2; // W
-            else rotation = 0; // Fallback if no connection (error)
+            const exitDir = connections.indexOf(true); // The direction path EXITS the start tile
+            // START chars: ['►', '▼', '◄', '▲'] for Rot 0(E), 1(S), 2(W), 3(N)
+            if (exitDir === 0)
+              rotation = 3; // Path exits North, START tile points North (▲)
+            else if (exitDir === 1)
+              rotation = 0; // Path exits East, START tile points East (►)
+            else if (exitDir === 2)
+              rotation = 1; // Path exits South, START tile points South (▼)
+            else if (exitDir === 3)
+              rotation = 2; // Path exits West, START tile points West (◄)
+            else rotation = 0;
           } else if (r === endR && c === endC) {
             type = "END";
-            const dir = connections.indexOf(true); // Direction END tile receives from
-            // END base is E [F,T,F,F] (points East).
-            // If path enters from N (dir=0), END needs to point N. Rotation = 3.
-            // If path enters from E (dir=1), END needs to point E. Rotation = 0.
-            // If path enters from S (dir=2), END needs to point S. Rotation = 1.
-            // If path enters from W (dir=3), END needs to point W. Rotation = 2.
-            if (dir === 0) rotation = 3; // Accepts from S, points N
-            else if (dir === 1) rotation = 0; // Accepts from W, points E
-            else if (dir === 2) rotation = 1; // Accepts from N, points S
-            else if (dir === 3) rotation = 2; // Accepts from E, points W
-            else rotation = 0; // Fallback
+            const entryDir = connections.indexOf(true); // The direction path ENTERS the end tile (from its perspective)
+            // END chars: ['►', '▼', '◄', '▲'] for Rot 0(E), 1(S), 2(W), 3(N) (which side is "open")
+            // If path connects to END's North side (entryDir=0), END tile must point North (▲)
+            if (entryDir === 0)
+              rotation = 3; // Path enters END from South (connects to END's N side), END points N
+            else if (entryDir === 1)
+              rotation = 0; // Path enters END from West (connects to END's E side), END points E
+            else if (entryDir === 2)
+              rotation = 1; // Path enters END from North (connects to END's S side), END points S
+            else if (entryDir === 3)
+              rotation = 2; // Path enters END from East (connects to END's W side), END points W
+            else rotation = 0;
           } else {
             if (numConnections === 2) {
               const [first, second] = connections
                 .map((val, idx) => (val ? idx : -1))
                 .filter((idx) => idx !== -1);
               if (Math.abs(first - second) === 2) {
-                // Opposite: 'I'
                 type = "I";
-                rotation = first === 0 || first === 2 ? 0 : 1; // N-S is rot 0 (char '│'), E-W is rot 1 (char '─')
+                rotation = first === 0 || first === 2 ? 0 : 1;
               } else {
-                // Adjacent: 'L'
                 type = "L";
-                // L chars: ['┘', '└', '┌', '┐'] for N-E, E-S, S-W, W-N connections
-                if (connections[0] && connections[1]) rotation = 0; // N-E
-                else if (connections[1] && connections[2]) rotation = 1; // E-S
-                else if (connections[2] && connections[3]) rotation = 2; // S-W
-                else if (connections[3] && connections[0]) rotation = 3; // W-N
-                else rotation = 0; // Fallback
+                if (connections[0] && connections[1]) rotation = 0; // N-E (┘)
+                else if (connections[1] && connections[2])
+                  rotation = 1; // E-S (└)
+                else if (connections[2] && connections[3])
+                  rotation = 2; // S-W (┌)
+                else if (connections[0] && connections[3])
+                  rotation = 3; // N-W (┐) (Note: W-N is same as N-W)
+                else rotation = 0;
               }
             } else if (numConnections === 3) {
               type = "T";
-              // T chars: ['┤', '┴', '├', '┬'] for N-E-W (open S), N-E-S (open W), E-S-W (open N), N-S-W (open E)
-              if (connections[0] && connections[1] && connections[3])
-                rotation = 0; // N,E,W connected (T points S)
-              else if (connections[0] && connections[1] && connections[2])
-                rotation = 1; // N,E,S connected (T points W)
-              else if (connections[1] && connections[2] && connections[3])
-                rotation = 2; // E,S,W connected (T points N)
-              else if (connections[0] && connections[2] && connections[3])
-                rotation = 3; // N,S,W connected (T points E)
-              else rotation = 0; // Fallback
+              if (!connections[2]) rotation = 0; // N-E-W, open S (┤)
+              else if (!connections[3]) rotation = 1; // N-E-S, open W (┴)
+              else if (!connections[0]) rotation = 2; // E-S-W, open N (├)
+              else if (!connections[1]) rotation = 3; // N-S-W, open E (┬)
+              else rotation = 0;
             } else if (numConnections === 4) {
               type = "X";
               rotation = 0;
             } else {
-              // Includes numConnections === 1, which is an error for an internal path tile
               console.warn(
                 `Path cell ${r},${c} has unexpected ${numConnections} connections. Defaulting to 'I'.`
               );
               type = "I";
-              rotation = 0; // Fallback
+              rotation = 0;
             }
           }
           pathTilesData[`${r}-${c}`] = { type, rotation, isPath: true };
@@ -428,46 +414,36 @@
         puzzleStatusEl.className = "";
 
         // Define start/end positions
-        // For simplicity, Start top-left quadrant, End bottom-right quadrant.
-        // Ensure they are reasonably spaced for smaller grids.
-        startPos = {
-          r: Math.floor(Math.random() * Math.floor(numRows / 2)),
-          c: Math.floor(Math.random() * Math.floor(numCols / 2)),
-        };
-        endPos = {
-          r: numRows - 1 - Math.floor(Math.random() * Math.floor(numRows / 2)),
-          c: numCols - 1 - Math.floor(Math.random() * Math.floor(numCols / 2)),
-        };
-
-        // Ensure start and end are not the same, especially on small grids
-        if (numRows <= 3 || numCols <= 3) {
-          // Fixed for small grids
+        if (numRows <= 3 && numCols <= 3) {
+          // Fixed for small square grids (or rects where one dim is <=3)
           startPos = { r: 0, c: 0 };
           endPos = { r: numRows - 1, c: numCols - 1 };
+        } else {
+          startPos = {
+            r: Math.floor(Math.random() * Math.floor(numRows / 2)),
+            c: Math.floor(Math.random() * Math.floor(numCols / 2)),
+          };
+          endPos = {
+            r:
+              numRows - 1 - Math.floor(Math.random() * Math.floor(numRows / 2)),
+            c:
+              numCols - 1 - Math.floor(Math.random() * Math.floor(numCols / 2)),
+          };
         }
+
         if (startPos.r === endPos.r && startPos.c === endPos.c) {
-          // If they still end up same (e.g. very small grid)
-          endPos.c = numCols - 1 - startPos.c; // Try to make them different
-          if (startPos.r === endPos.r && startPos.c === endPos.c) {
-            // if still same
+          if (numCols > 1) endPos.c = numCols - 1 - startPos.c;
+          if (startPos.r === endPos.r && startPos.c === endPos.c && numRows > 1)
             endPos.r = numRows - 1 - startPos.r;
+          if (startPos.r === endPos.r && startPos.c === endPos.c) {
+            // If still same
+            puzzleStatusEl.textContent =
+              "Error: Cannot place start/end distinctly. Try larger grid or different dimensions.";
+            return;
           }
         }
-        if (startPos.r === endPos.r && startPos.c === endPos.c && numCols > 1)
-          endPos.c = (startPos.c + 1) % numCols;
-        else if (
-          startPos.r === endPos.r &&
-          startPos.c === endPos.c &&
-          numRows > 1
-        )
-          endPos.r = (startPos.r + 1) % numRows;
 
-        if (startPos.r === endPos.r && startPos.c === endPos.c) {
-          puzzleStatusEl.textContent =
-            "Error: Cannot place start/end distinctly. Try larger grid.";
-          return;
-        }
-
+        // 1. Generate the core solution path and tile configurations for it.
         const solutionData = createSolutionPath(
           numRows,
           numCols,
@@ -476,6 +452,8 @@
           endPos.r,
           endPos.c
         );
+
+        console.log("Solution path data:", solutionData);
 
         if (!solutionData) {
           puzzleStatusEl.textContent =
@@ -486,9 +464,12 @@
         board = Array(numRows)
           .fill(null)
           .map(() => Array(numCols).fill(null));
-        const tileTypes = ["I", "L", "T", "X"];
+        const tileTypes = ["I", "L", "T", "X"]; // Available filler types
 
-        // Place solution path tiles
+        // 2. Populate the board:
+        //    - Place solution path tiles with their correct "solved" rotations.
+        //    - Fill other tiles randomly.
+        //    - Mark Start/End tiles as locked.
         for (let r = 0; r < numRows; r++) {
           for (let c = 0; c < numCols; c++) {
             const key = `${r}-${c}`;
@@ -496,17 +477,18 @@
             const isEnd = r === endPos.r && c === endPos.c;
 
             if (solutionData[key]) {
+              // This tile is on the pre-calculated solution path
               const { type, rotation } = solutionData[key];
               board[r][c] = {
                 type: type,
-                rotation: rotation,
+                rotation: rotation, // This is the "solved" rotation for this path tile
                 locked: isStart || isEnd, // Start/End tiles are locked by default
                 isStart: isStart,
                 isEnd: isEnd,
-                onSolutionPath: true, // Mark as part of the original solution
+                onSolutionPath: true,
               };
             } else {
-              // Fill non-path tiles randomly
+              // This tile is a "filler" tile
               const randomType =
                 tileTypes[Math.floor(Math.random() * tileTypes.length)];
               const def = TILE_DEFINITIONS[randomType];
@@ -515,7 +497,7 @@
               );
               board[r][c] = {
                 type: randomType,
-                rotation: randomRotation,
+                rotation: randomRotation, // Initial random rotation
                 locked: false,
                 isStart: false,
                 isEnd: false,
@@ -525,7 +507,9 @@
           }
         }
 
-        // Lock additional tiles
+        // 3. Lock additional tiles based on difficulty percentage.
+        //    Locked path tiles will retain their "solved" rotation.
+        //    Locked filler tiles will retain their random rotation.
         const tilesToConsiderLocking = [];
         for (let r = 0; r < numRows; r++) {
           for (let c = 0; c < numCols; c++) {
@@ -540,41 +524,59 @@
         }
         shuffleArray(tilesToConsiderLocking);
 
-        // Prioritize locking on-path tiles for "legacy code" feel
-        const onPathTiles = tilesToConsiderLocking.filter((t) => t.onPath);
-        const offPathTiles = tilesToConsiderLocking.filter((t) => !t.onPath);
-
-        let numToLock = Math.floor(
+        let numAdditionalLock = Math.floor(
           (numRows * numCols - 2) * lockedTilePercentage
-        ); // -2 for start/end
-
+        );
         let lockedCount = 0;
-        // Lock ~70% from path, ~30% from off-path, if available
-        const pathLockTarget = Math.ceil(numToLock * 0.7);
-        const offPathLockTarget = numToLock - pathLockTarget;
 
-        for (
-          let i = 0;
-          i < onPathTiles.length &&
-          lockedCount < pathLockTarget &&
-          numToLock > 0;
-          i++
-        ) {
-          board[onPathTiles[i].r][onPathTiles[i].c].locked = true;
-          lockedCount++;
-          numToLock--;
+        // Prioritize locking on-path tiles for "legacy code" feel, then off-path
+        const pathLockTargetRatio = 0.7; // Try to lock 70% of additional locks from path tiles
+
+        for (const tileLoc of tilesToConsiderLocking) {
+          if (lockedCount >= numAdditionalLock) break;
+
+          let shouldLock = false;
+          if (
+            tileLoc.onPath &&
+            numAdditionalLock * pathLockTargetRatio > lockedCount
+          ) {
+            // Heuristic
+            shouldLock = true;
+          } else if (!tileLoc.onPath) {
+            shouldLock = true; // Lock off-path if on-path quota met or tile is off-path
+          }
+          // Fallback if initial locking strategy doesn't fill quota
+          if (
+            lockedCount < numAdditionalLock &&
+            !board[tileLoc.r][tileLoc.c].locked
+          ) {
+            shouldLock = true;
+          }
+
+          if (shouldLock && !board[tileLoc.r][tileLoc.c].locked) {
+            // Check again for safety
+            board[tileLoc.r][tileLoc.c].locked = true;
+            lockedCount++;
+          }
         }
-        for (let i = 0; i < offPathTiles.length && numToLock > 0; i++) {
-          board[offPathTiles[i].r][offPathTiles[i].c].locked = true;
-          lockedCount++;
-          numToLock--;
+        // Ensure the quota is met if possible, from any remaining non-locked tiles
+        for (const tileLoc of tilesToConsiderLocking) {
+          if (lockedCount >= numAdditionalLock) break;
+          if (!board[tileLoc.r][tileLoc.c].locked) {
+            board[tileLoc.r][tileLoc.c].locked = true;
+            lockedCount++;
+          }
         }
 
-        // Scramble rotations of UNLOCKED non-start/end tiles
+        // 4. Scramble rotations of UNLOCKED non-start/end tiles.
+        //    This is the step that "shuffles" the puzzle from its initial defined state.
+        //    Because a solution path was explicitly constructed and locked tiles (including Start/End
+        //    and any locked path tiles) retain their crucial rotations, the puzzle remains solvable.
         for (let r = 0; r < numRows; r++) {
           for (let c = 0; c < numCols; c++) {
             const tile = board[r][c];
-            if (!tile.locked && !tile.isStart && !tile.isEnd) {
+            // Only scramble if tile is not locked. Start/End are already locked with correct orientation.
+            if (!tile.locked) {
               const def = TILE_DEFINITIONS[tile.type];
               tile.rotation = Math.floor(
                 Math.random() * def.connections.length
@@ -583,10 +585,9 @@
           }
         }
         renderBoard();
-        checkWinCondition(); // Check initial state (usually not solved)
+        checkWinCondition();
       }
 
-      // --- Rendering ---
       function renderBoard() {
         puzzleContainer.innerHTML = "";
         const grid = document.createElement("div");
@@ -621,7 +622,6 @@
         puzzleContainer.appendChild(grid);
       }
 
-      // --- Interaction ---
       function onTileClick(r, c) {
         if (gameSolved || board[r][c].locked) return;
 
@@ -629,34 +629,24 @@
         const def = TILE_DEFINITIONS[tile.type];
         tile.rotation = (tile.rotation + 1) % def.connections.length;
 
-        renderBoard(); // Could optimize to re-render only the clicked tile
+        renderBoard();
         checkWinCondition();
       }
 
-      // --- Win Condition Check ---
       function checkWinCondition() {
-        solutionPathCellsSet.clear(); // Clear previous solution path highlighting
+        solutionPathCellsSet.clear();
 
-        // 1. BFS/DFS from Start to End
-        const q = [
-          {
-            r: startPos.r,
-            c: startPos.c,
-            path: [`${startPos.r}-${startPos.c}`],
-          },
-        ];
-        const visited = new Set([`${startPos.r}-${startPos.c}`]);
-        let pathToEndFound = false;
-        let finalPath = null;
+        const q = [];
+        const visited = new Set();
 
-        const startTileConnections = getTileActualConnections(
-          board[startPos.r][startPos.c]
-        );
+        // Initial step from START tile
+        const startTileObj = board[startPos.r][startPos.c];
+        const startTileConnections = getTileActualConnections(startTileObj);
 
-        // Initial step from START tile: must connect according to its orientation
         for (let dir = 0; dir < 4; dir++) {
           // N, E, S, W
           if (startTileConnections[dir]) {
+            // If START tile connects in this direction
             const dr = [-1, 0, 1, 0];
             const dc = [0, 1, 0, -1];
             const nr = startPos.r + dr[dir];
@@ -669,52 +659,42 @@
               const oppositeDir = (dir + 2) % 4;
               if (neighborConnections[oppositeDir]) {
                 // Neighbor connects back
+                // Add neighbor to queue, marking startPos as the 'previous' for path reconstruction
                 q.push({
                   r: nr,
                   c: nc,
                   path: [`${startPos.r}-${startPos.c}`, `${nr}-${nc}`],
                 });
+                visited.add(`${startPos.r}-${startPos.c}`); // Add start to visited BEFORE queue processing
                 visited.add(`${nr}-${nc}`);
               }
             }
           }
         }
-        // The queue q now contains the first valid neighbors of START tile.
-        // We actually only need one starting point for BFS, so let's adjust.
-        // Corrected BFS start:
-        q.length = 0; // Clear queue
-        visited.clear();
 
-        q.push({
-          r: startPos.r,
-          c: startPos.c,
-          path: [`${startPos.r}-${startPos.c}`],
-        });
-        visited.add(`${startPos.r}-${startPos.c}`);
+        let pathToEndFound = false;
+        let finalPath = null;
 
-        while (q.length > 0) {
-          const curr = q.shift();
+        let head = 0;
+        while (head < q.length) {
+          const curr = q[head++]; // Dequeue
           const r = curr.r;
           const c = curr.c;
 
           if (r === endPos.r && c === endPos.c) {
-            // Reached End Position
-            // Now check if the END tile actually connects to the path from `curr.prev_r, curr.prev_c`
-            // This is implicitly handled by how neighbors are added.
-            // The crucial part is that the END tile's specific connection port must be used.
-            // Let's refine this: the check for END tile connection is part of neighbor check.
+            // We've reached the End tile's *position*.
+            // The check that the End tile *accepts* this connection was implicitly done when adding it to queue.
             pathToEndFound = true;
             finalPath = curr.path;
             break;
           }
 
           const currentTileConnections = getTileActualConnections(board[r][c]);
-          const dr = [-1, 0, 1, 0]; // N, E, S, W
+          const dr = [-1, 0, 1, 0];
           const dc = [0, 1, 0, -1];
 
           for (let dir = 0; dir < 4; dir++) {
             if (currentTileConnections[dir]) {
-              // If current tile has an opening in this direction
               const nr = r + dr[dir];
               const nc = c + dc[dir];
 
@@ -731,23 +711,9 @@
                 const oppositeDir = (dir + 2) % 4;
 
                 if (neighborConnections[oppositeDir]) {
-                  // If neighbor connects back
-                  if (nr === endPos.r && nc === endPos.c) {
-                    // If this neighbor is the END tile
-                    // Check if this connection is THE one the END tile expects
-                    const endTileExpectedConnectionDir =
-                      neighborConnections.indexOf(true); // END tiles have one true connection
-                    if (endTileExpectedConnectionDir === oppositeDir) {
-                      visited.add(`${nr}-${nc}`);
-                      const newPath = [...curr.path, `${nr}-${nc}`];
-                      q.push({ r: nr, c: nc, path: newPath });
-                    }
-                  } else if (!neighborTile.isEnd) {
-                    // Don't traverse non-end tiles if they are not connected properly
-                    visited.add(`${nr}-${nc}`);
-                    const newPath = [...curr.path, `${nr}-${nc}`];
-                    q.push({ r: nr, c: nc, path: newPath });
-                  }
+                  visited.add(`${nr}-${nc}`);
+                  const newPath = [...curr.path, `${nr}-${nc}`];
+                  q.push({ r: nr, c: nc, path: newPath });
                 }
               }
             }
@@ -756,18 +722,16 @@
 
         if (!pathToEndFound) {
           gameSolved = false;
-          if (puzzleStatusEl.textContent.includes("Solved")) {
-            // Avoid overwriting initial messages
+          // Do not change status if it's the initial call and puzzle is not yet solved
+          if (puzzleStatusEl.textContent.includes("Solved!")) {
             puzzleStatusEl.textContent = "Puzzle in progress...";
             puzzleStatusEl.className = "";
           }
           return false;
         }
 
-        // Store the found path for highlighting
         finalPath.forEach((p) => solutionPathCellsSet.add(p));
 
-        // 2. "Fully routed" check (no leaks on the ENTIRE grid)
         for (let r = 0; r < numRows; r++) {
           for (let c = 0; c < numCols; c++) {
             const tile = board[r][c];
@@ -776,29 +740,30 @@
             const dc = [0, 1, 0, -1];
 
             for (let dir = 0; dir < 4; dir++) {
-              // For each direction N,E,S,W
               if (connections[dir]) {
-                // If this tile has an opening in 'dir'
                 const nr = r + dr[dir];
                 const nc = c + dc[dir];
 
                 if (nr < 0 || nr >= numRows || nc < 0 || nc >= numCols) {
-                  // Opening to outside grid edge
-                  // This is a leak, UNLESS it's the designated port of Start/End.
-                  // But Start/End are designed to connect inwards. So this is always a leak.
-                  gameSolved = false;
+                  gameSolved = false; // Opening to outside grid edge is a leak
+                  if (puzzleStatusEl.textContent.includes("Solved!")) {
+                    puzzleStatusEl.textContent = "Leak detected!";
+                    puzzleStatusEl.className = "";
+                  }
                   return false;
                 }
 
-                // Neighbor is on grid, check if it connects back
                 const neighborTile = board[nr][nc];
                 const neighborConnections =
                   getTileActualConnections(neighborTile);
                 const oppositeDir = (dir + 2) % 4;
 
                 if (!neighborConnections[oppositeDir]) {
-                  // Neighbor doesn't connect back
-                  gameSolved = false;
+                  gameSolved = false; // Neighbor doesn't connect back
+                  if (puzzleStatusEl.textContent.includes("Solved!")) {
+                    puzzleStatusEl.textContent = "Leak detected!";
+                    puzzleStatusEl.className = "";
+                  }
                   return false;
                 }
               }
@@ -806,26 +771,28 @@
           }
         }
 
-        // If all checks pass
         gameSolved = true;
         puzzleStatusEl.textContent = "Solved!";
         puzzleStatusEl.className = "solved";
-        renderBoard(); // Re-render to apply solved styles
+        renderBoard();
         return true;
       }
 
-      // --- Setup ---
       startPuzzleButton.addEventListener("click", () => {
         numRows = parseInt(boardSizeRowsInput.value);
         numCols = parseInt(boardSizeColsInput.value);
         if (isNaN(numRows) || numRows < 3 || numRows > 15) {
           alert("Board rows must be between 3 and 15.");
-          boardSizeRowsInput.value = Math.max(3, Math.min(15, numRows || 5));
+          boardSizeRowsInput.value = String(
+            Math.max(3, Math.min(15, numRows || 5))
+          );
           return;
         }
         if (isNaN(numCols) || numCols < 3 || numCols > 15) {
           alert("Board columns must be between 3 and 15.");
-          boardSizeColsInput.value = Math.max(3, Math.min(15, numCols || 5));
+          boardSizeColsInput.value = String(
+            Math.max(3, Math.min(15, numCols || 5))
+          );
           return;
         }
         lockedTilePercentage = parseFloat(lockedLevelSelect.value);
