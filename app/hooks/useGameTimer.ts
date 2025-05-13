@@ -9,7 +9,7 @@ interface UseGameTimerProps {
 export function useGameTimer({ initialTime, onTimerEnd }: UseGameTimerProps) {
   const [timeRemaining, setTimeRemaining] = useState(initialTime);
   const [isRunning, setIsRunning] = useState(false);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<number | null>(null);
 
   const tick = useCallback(() => {
     setTimeRemaining((prevTime) => {

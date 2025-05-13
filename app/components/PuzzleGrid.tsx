@@ -1,7 +1,7 @@
 // src/components/PuzzleGrid.tsx
 import React from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
-import { PuzzleState } from "../types";
+import { PuzzleState } from "../types/types";
 import Tile from "./Tile";
 
 interface PuzzleGridProps {

@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 import PuzzleGrid from "../components/PuzzleGrid";
-import { usePuzzleState } from "../usePuzzleState";
+import { usePuzzleState } from "../hooks/usePuzzleState";
 
 const DEFAULT_SIZE = 5;
 const DEFAULT_LOCKED_PERCENT = 20;

@@ -1,7 +1,7 @@
 // src/components/TicketCard.tsx
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Ticket } from "../types";
+import { Ticket } from "../types/types";
 
 interface TicketCardProps {
   ticket: Ticket;

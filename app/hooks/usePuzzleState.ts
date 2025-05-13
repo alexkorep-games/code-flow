@@ -5,8 +5,8 @@ import {
   initPuzzle,
   checkSolution as pureCheckSolution,
   rotateTile as pureRotateTile,
-} from "./puzzleLogic"; // Assuming puzzleLogic is in the same folder or adjust path
-import { GridState, PuzzleState } from "./types";
+} from "../logic/puzzleLogic"; // Assuming puzzleLogic is in the same folder or adjust path
+import { GridState, PuzzleState } from "../types/types";
 
 interface UsePuzzleStateParams {
   initialPuzzle?: PuzzleState | null; // For loading existing puzzle
@@ -43,7 +43,7 @@ export function usePuzzleState(
   const [isSolved, setIsSolved] = useState<boolean>(false);
 
   const [timeSpentOnPuzzle, setTimeSpentOnPuzzle] = useState(0);
-  const puzzleTimerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const puzzleTimerIntervalRef = useRef<number | null>(null);
   const [isPuzzleTimerRunning, setIsPuzzleTimerRunning] = useState(false);
 
   const startPuzzleTimer = useCallback(() => setIsPuzzleTimerRunning(true), []);

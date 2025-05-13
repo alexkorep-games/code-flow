@@ -2,7 +2,7 @@
 import React from "react";
 import { Pressable } from "react-native";
 import Svg, { Circle, G, Line, Path } from "react-native-svg";
-import { TileState } from "../types";
+import { TileState } from "../types/types";
 
 interface TileProps {
   tileData: TileState;

@@ -15,7 +15,7 @@ import {
   addNewTicketsToBacklog,
   generateInitialBacklog
 } from "../logic/ticketLogic";
-import { GamePhase, PuzzleState, Ticket, TicketID } from "../types";
+import { GamePhase, PuzzleState, Ticket, TicketID } from "../types/types";
 
 interface GameContextType {
   gamePhase: GamePhase;
@@ -78,7 +78,6 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({
     startTimer: startSprintTimerInternal,
     pauseTimer: pauseSprintTimerInternal,
     resetTimer: resetSprintTimerInternal,
-    setTimeManually,
   } = useGameTimer({
     initialTime: sprintTotalTime,
     onTimerEnd: handleSprintTimerEnd,

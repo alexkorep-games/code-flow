@@ -1,3 +1,5 @@
+import { TicketType } from "./types/types";
+
 // src/config.ts
 export const INITIAL_SPRINT_DURATION_SECONDS = 5 * 60; // 5 minutes
 export const INITIAL_BACKLOG_SIZE = 8;

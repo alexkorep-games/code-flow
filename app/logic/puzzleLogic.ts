@@ -5,7 +5,7 @@ import {
   SpecialType,
   TileState,
   TileType,
-} from "./types";
+} from "../types/types";
 
 // --- Rotation Helpers ---
 

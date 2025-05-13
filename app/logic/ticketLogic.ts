@@ -1,6 +1,6 @@
 // src/logic/ticketLogic.ts
 import * as Config from "../config";
-import { Ticket, TicketID } from "../types";
+import { Ticket, TicketID } from "../types/types";
 import { initPuzzle } from "./puzzleLogic";
 
 let ticketIdCounter = 0;

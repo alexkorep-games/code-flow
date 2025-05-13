@@ -1,5 +1,6 @@
-import PuzzleGameScreen from "../src/screens/PuzzleGame";
+// src/app/index.tsx
+import { Redirect } from "expo-router";
 
-export default function Index() {
-  return <PuzzleGameScreen />;
+export default function AppEntry() {
+  return <Redirect href="/menu" />;
 }
