@@ -4,7 +4,7 @@ import fs from "fs";
 import path from "path";
 import process from "process";
 
-const targetDirectory = "./src";
+const targetDirectory = "./app";
 const excludedDirs = [
   // "src/features/credits",
   // "src/features/stats",
