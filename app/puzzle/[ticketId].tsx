@@ -1,6 +1,6 @@
 // src/app/puzzle/[ticketId].tsx
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react"; // Added useCallback
 import {
   Button,
   Dimensions,
@@ -8,7 +8,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  View
+  View,
 } from "react-native";
 import PuzzleGrid from "../components/PuzzleGrid";
 import { useGame } from "../contexts/GameContext";
@@ -33,7 +33,6 @@ export default function PuzzleSolvingScreen() {
     string | null
   >(null);
 
-  // Initialize usePuzzleState with a placeholder or null, it will be loaded via effect
   const {
     puzzleState,
     isLoading,
@@ -43,9 +42,9 @@ export default function PuzzleSolvingScreen() {
     getCurrentGrid,
     timeSpentOnPuzzle,
     startPuzzleTimer,
-    pausePuzzleTimer: pauseLocalPuzzleTimer, // Renamed to avoid conflict
+    pausePuzzleTimer: pauseLocalPuzzleTimer,
     resetPuzzleTimer,
-  } = usePuzzleState({ initialPuzzle: null }); // Start with no puzzle
+  } = usePuzzleState({ initialPuzzle: null });
 
   // Effect to load puzzle when activeTicket changes or screen mounts with a ticketId
   useEffect(() => {
@@ -60,25 +59,20 @@ export default function PuzzleSolvingScreen() {
       startPuzzleTimer(); // Start local timer
       resumeSprintTimer(); // Resume global sprint timer
     } else if (!activeTicket && ticketId) {
-      // This case might happen if navigating directly to puzzle URL without GameContext fully ready
-      // Or if activeTicket becomes null for some reason.
-      // Potentially redirect or show error.
       console.warn(
         "PuzzleScreen: Active ticket not found or mismatch for ID:",
         ticketId
       );
-      // router.replace('/sprint-board'); // Example recovery
     }
 
-    // Cleanup: Pause timers when component unmounts or ticketId changes
     return () => {
       pauseLocalPuzzleTimer();
-      pauseSprintTimer(); // Pause global sprint timer if leaving puzzle screen
+      pauseSprintTimer();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     activeTicket,
     ticketId,
+    currentLoadedTicketId, // Added currentLoadedTicketId to dependency array
     loadPuzzle,
     resetPuzzleTimer,
     startPuzzleTimer,
@@ -87,14 +81,39 @@ export default function PuzzleSolvingScreen() {
     pauseLocalPuzzleTimer,
   ]);
 
-  const handleSolve = () => {
-    if (activeTicket) {
-      pauseLocalPuzzleTimer(); // Stop local puzzle timer
-      pauseSprintTimer(); // Stop global sprint timer
+  // Memoize handleSolve to stabilize its reference and define dependencies clearly
+  const handleSolve = useCallback(() => {
+    // Check activeTicket again inside handleSolve, as it might be called from a stale closure otherwise
+    // though the useEffect calling it should have up-to-date activeTicket from its own deps.
+    // The main guard is the useEffect condition itself.
+    if (activeTicket && activeTicket.id === ticketId) {
+      pauseLocalPuzzleTimer();
+      pauseSprintTimer();
       completeTicket(activeTicket.id, timeSpentOnPuzzle);
-      // Navigation is handled by completeTicket
     }
-  };
+  }, [
+    activeTicket,
+    ticketId,
+    completeTicket,
+    timeSpentOnPuzzle,
+    pauseLocalPuzzleTimer,
+    pauseSprintTimer,
+  ]);
+
+  useEffect(() => {
+    // Only call handleSolve if isSolved is true AND it pertains to the currently loaded ticket.
+    // This check ensures that a stale `isSolved` (true from a previous puzzle)
+    // doesn't trigger `handleSolve` for a new `activeTicket` before the new puzzle's
+    // state (including its potentially `isSolved=false` status) is fully processed.
+    if (
+      isSolved &&
+      activeTicket &&
+      activeTicket.id === ticketId &&
+      ticketId === currentLoadedTicketId
+    ) {
+      handleSolve();
+    }
+  }, [isSolved, activeTicket, ticketId, currentLoadedTicketId, handleSolve]); // Added currentLoadedTicketId and handleSolve
 
   const handlePauseOrExit = () => {
     if (activeTicket && puzzleState) {
@@ -105,26 +124,25 @@ export default function PuzzleSolvingScreen() {
         { ...puzzleState, grid: getCurrentGrid() || puzzleState.grid },
         timeSpentOnPuzzle
       );
-      // Navigation is handled by saveAndExitPuzzle
     } else {
-      router.back(); // Fallback if something is wrong
+      router.back();
     }
   };
 
-  useEffect(() => {
-    if (isSolved && activeTicket) {
-      handleSolve(); // Automatically call handleSolve when local hook reports solved
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSolved, activeTicket]); // Dependencies: isSolved, activeTicket
+  // This useEffect for auto-calling handleSolve when `isSolved` changes has been refined above.
+  // The old one:
+  // useEffect(() => {
+  //   if (isSolved && activeTicket) {
+  //     handleSolve();
+  //   }
+  // }, [isSolved, activeTicket]);
 
   const tileSize = useMemo(() => {
-    const size = puzzleState?.N || 5; // Default to 5 if not loaded
+    const size = puzzleState?.N || 5;
     return Math.floor(maxGridWidth / size);
   }, [puzzleState?.N]);
 
   if (!activeTicket || activeTicket.id !== ticketId) {
-    // This can happen during navigation transitions or if context is slow
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
@@ -158,22 +176,22 @@ export default function PuzzleSolvingScreen() {
           tileSize={tileSize}
           onTilePress={rotateTile}
           isLoading={isLoading}
-          isSolved={isSolved} // Pass isSolved to PuzzleGrid to disable interaction
+          isSolved={isSolved}
         />
 
-        {isSolved && (
-          <Text style={styles.solvedText}>
-            🎉 Solved! Returning to Sprint Board... 🎉
-          </Text>
-        )}
+        {isSolved &&
+          ticketId === currentLoadedTicketId && ( // Also ensure solved message is for current puzzle
+            <Text style={styles.solvedText}>
+              🎉 Solved! Returning to Sprint Board... 🎉
+            </Text>
+          )}
 
         <View style={styles.controls}>
           <Button
             title="Pause & Return to Sprint Board"
             onPress={handlePauseOrExit}
-            disabled={isSolved}
+            disabled={isSolved && ticketId === currentLoadedTicketId} // Disable if current puzzle is solved
           />
-          {/* "Complete" button is removed as solving is auto-detected */}
         </View>
       </ScrollView>
     </SafeAreaView>
