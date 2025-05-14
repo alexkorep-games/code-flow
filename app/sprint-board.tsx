@@ -1,6 +1,8 @@
 // src/app/sprint-board.tsx
-import React from "react";
+import { useRouter } from "expo-router"; // Import useRouter
+import React, { useEffect } from "react"; // Import useEffect
 import {
+  ActivityIndicator, // For a loading indicator
   Alert,
   Button,
   FlatList,
@@ -14,18 +16,31 @@ import { useGame } from "./contexts/GameContext";
 import { Ticket } from "./types/types";
 
 export default function SprintBoardScreen() {
+  const router = useRouter();
   const {
+    gamePhase, // Get gamePhase
     sprintNumber,
     currentSprintTickets,
     selectTicketToWorkOn,
     sprintTimeRemaining,
-    isSprintTimerRunning,
-    pauseSprintTimer,
-    resumeSprintTimer,
     completedTicketsThisSprint,
     endSprintEarly,
-    gamePhase,
   } = useGame();
+
+  useEffect(() => {
+    if (gamePhase !== "SPRINT_ACTIVE") {
+      // console.log("SprintBoardScreen: Incorrect game phase. Expected SPRINT_ACTIVE, got", gamePhase, ". Redirecting to /menu.");
+      router.replace("/menu"); // Use replace to not add to history
+    }
+  }, [gamePhase, router]);
+
+  if (gamePhase !== "SPRINT_ACTIVE") {
+    return (
+      <SafeAreaView style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#d35400" />
+      </SafeAreaView>
+    );
+  }
 
   const renderTicketItem = ({ item }: { item: Ticket }) => (
     <TicketCard
@@ -47,9 +62,6 @@ export default function SprintBoardScreen() {
     .toString()
     .padStart(2, "0")}`;
 
-  // The timer should ideally be controlled by gamePhase changes in GameContext.
-  // PUZZLE_SOLVING phase should run the timer, SPRINT_ACTIVE should pause it.
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
@@ -64,8 +76,10 @@ export default function SprintBoardScreen() {
 
         {currentSprintTickets.length === 0 ? (
           <Text style={styles.emptyText}>
-            No tickets in this sprint. This shouldn't happen if planned
-            correctly.
+            No tickets in this sprint.
+            {sprintNumber > 0
+              ? " You can add tickets during Sprint Planning."
+              : " Start a new game."}
           </Text>
         ) : (
           <FlatList
@@ -80,6 +94,7 @@ export default function SprintBoardScreen() {
             title="End Sprint Early"
             onPress={endSprintEarly}
             color="orange"
+            disabled={gamePhase !== "SPRINT_ACTIVE"} // Ensure button is disabled if not in correct phase
           />
         </View>
       </View>
@@ -93,6 +108,13 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 15,
   },
+  loadingContainer: {
+    // Added for loading state
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#e9eef0",
+  },
   header: {
     marginBottom: 20,
     alignItems: "center",
@@ -105,7 +127,7 @@ const styles = StyleSheet.create({
   timerText: {
     fontSize: 20,
     fontWeight: "600",
-    color: "#d35400", // Orange-red for timer
+    color: "#d35400",
     marginBottom: 5,
   },
   statsText: {
