@@ -4,13 +4,8 @@ import fs from "fs";
 import path from "path";
 import process from "process";
 
-const targetDirectory = "./app";
-const excludedDirs = [
-  // "src/features/credits",
-  // "src/features/stats",
-  // "src/features/title",
-  // "src/features/undocking",
-];
+const targetDirectory = "./";
+const excludedDirs = [".expo", ".vscode", "assets", "node_modules", "dist"];
 
 /**
  * Checks if a given path should be excluded based on excludedDirs
