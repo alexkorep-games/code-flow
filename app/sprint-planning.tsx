@@ -1,8 +1,7 @@
 // src/app/sprint-planning.tsx
-import { useRouter } from "expo-router"; // Import useRouter
-import React, { useEffect } from "react"; // Import useEffect
+import { Redirect } from "expo-router";
+import React from "react"; // Import useEffect
 import {
-  ActivityIndicator, // For a loading indicator
   Button,
   FlatList,
   SafeAreaView,
@@ -10,14 +9,14 @@ import {
   Text,
   View,
 } from "react-native";
+
 import TicketCard from "./components/TicketCard";
 import { useGame } from "./contexts/GameContext";
 import { Ticket } from "./types/types";
 
 export default function SprintPlanningScreen() {
-  const router = useRouter();
   const {
-    gamePhase, // Get gamePhase
+    gamePhase,
     sprintNumber,
     backlog,
     currentSprintTickets,
@@ -27,20 +26,8 @@ export default function SprintPlanningScreen() {
     sprintTotalTime,
   } = useGame();
 
-  useEffect(() => {
-    if (gamePhase !== "SPRINT_PLANNING") {
-      // console.log("SprintPlanningScreen: Incorrect game phase. Expected SPRINT_PLANNING, got", gamePhase, ". Redirecting to /menu.");
-      router.replace("/menu"); // Use replace to not add to history
-    }
-  }, [gamePhase, router]);
-
-  // If gamePhase is not correct, render nothing or a loader until redirect happens
   if (gamePhase !== "SPRINT_PLANNING") {
-    return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3498db" />
-      </SafeAreaView>
-    );
+    return <Redirect href="/menu" />;
   }
 
   const renderTicketItem = ({ item }: { item: Ticket }) => (
