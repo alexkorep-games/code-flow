@@ -103,8 +103,6 @@ const Tile: React.FC<TileProps> = ({ tileData, size, onPress, isSolved }) => {
           {renderPipe()}
           {renderMarker()}
         </G>
-        {/* Optional: Visual indicator for locked tiles */}
-        {/* {locked && <Rect x={2} y={2} width={size - 4} height={size - 4} stroke="#555" strokeWidth="1" fill="none" />} */}
       </Svg>
     </Pressable>
   );
