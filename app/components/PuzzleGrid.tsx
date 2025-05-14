@@ -65,29 +65,22 @@ const styles = StyleSheet.create({
   loadingContainer: {
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f0f0f0", // Match puzzle background
+    backgroundColor: "#f0f0f0",
     marginVertical: 20,
     borderRadius: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3, // for Android
+    boxShadow: "0px 2px 3px rgba(0,0,0,0.2)",
+    elevation: 3, // Keep for Android if needed, or remove if web-only styling
   },
   gridContainer: {
-    flexDirection: "column", // Rows are stacked vertically
+    flexDirection: "column",
     backgroundColor: "#f0f0f0",
     borderWidth: 1,
     borderColor: "#ccc",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 5, // for Android
+    boxShadow: "0px 2px 5px rgba(0,0,0,0.3)",
+    elevation: 5, // Keep for Android if needed, or remove if web-only styling
   },
   row: {
-    flexDirection: "row", // Tiles within a row are horizontal
+    flexDirection: "row",
   },
 });
-
 export default PuzzleGrid;
