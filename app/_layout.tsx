@@ -1,7 +1,7 @@
 // src/app/_layout.tsx
 import { Stack } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler"; // For potential future gestures
-import { GameProvider } from "./contexts/GameContext";
+import { GameProvider } from "../src/contexts/GameContext";
 
 export default function RootLayout() {
   return (

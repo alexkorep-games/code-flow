@@ -10,9 +10,9 @@ import {
   Text,
   View
 } from "react-native";
-import TicketCard from "./components/TicketCard";
-import { useGame } from "./contexts/GameContext";
-import { Ticket } from "./types/types";
+import TicketCard from "../src/components/TicketCard";
+import { useGame } from "../src/contexts/GameContext";
+import { Ticket } from "../src/types/types";
 
 export default function SprintBoardScreen() {
   const {

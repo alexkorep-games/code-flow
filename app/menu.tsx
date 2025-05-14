@@ -1,7 +1,7 @@
 // src/app/menu.tsx
 import React from "react";
 import { Button, SafeAreaView, StyleSheet, Text, View } from "react-native";
-import { useGame } from "./contexts/GameContext";
+import { useGame } from "../src/contexts/GameContext";
 
 export default function MenuScreen() {
   const { startGame } = useGame();

@@ -9,12 +9,12 @@ import React, {
   useState,
 } from "react";
 import { Alert } from "react-native";
-import * as Config from "../config";
-import { useGameTimer } from "../hooks/useGameTimer";
+import { useGameTimer } from "../../src/hooks/useGameTimer";
 import {
   addNewTicketsToBacklog,
-  generateInitialBacklog
-} from "../logic/ticketLogic";
+  generateInitialBacklog,
+} from "../../src/logic/ticketLogic";
+import * as Config from "../config";
 import { GamePhase, PuzzleState, Ticket, TicketID } from "../types/types";
 
 interface GameContextType {
