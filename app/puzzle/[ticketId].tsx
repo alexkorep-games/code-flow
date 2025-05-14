@@ -1,8 +1,7 @@
 // src/app/puzzle/[ticketId].tsx
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react"; // Added useCallback
 import {
-  ActivityIndicator,
   Button,
   Dimensions,
   SafeAreaView,
@@ -48,6 +47,27 @@ export default function PuzzleSolvingScreen() {
     resetPuzzleTimer,
   } = usePuzzleState({ initialPuzzle: null });
 
+  if (
+    gamePhase === "MAIN_MENU" ||
+    gamePhase === "GAME_OVER" ||
+    gamePhase === "SPRINT_REVIEW"
+  ) {
+    return <Redirect href="/menu" />;
+  }
+  if (gamePhase === "SPRINT_PLANNING") {
+    return <Redirect href="/sprint-planning" />;
+  }
+  if (gamePhase === "SPRINT_ACTIVE") {
+    return <Redirect href="/sprint-board" />;
+  }
+  // If we *are* in PUZZLE_SOLVING, but the activeTicket doesn't match this ticketId:
+  if (
+    gamePhase === "PUZZLE_SOLVING" &&
+    (!activeTicket || activeTicket.id !== ticketId)
+  ) {
+    return <Redirect href="/sprint-board" />;
+  }
+
   // Effect to load puzzle when activeTicket changes or screen mounts with a ticketId
   useEffect(() => {
     if (
@@ -60,41 +80,6 @@ export default function PuzzleSolvingScreen() {
       resetPuzzleTimer(); // Reset local timer for this puzzle
       startPuzzleTimer(); // Start local timer
       resumeSprintTimer(); // Resume global sprint timer
-    } else if (
-      (!activeTicket && ticketId) ||
-      (activeTicket && activeTicket.id !== ticketId && ticketId)
-    ) {
-      // This condition means either activeTicket is null, or it's for a different ticketId
-      // than the one in the URL params, and we have a ticketId from URL.
-      console.warn(
-        "PuzzleScreen: Active ticket not found or mismatch for ID:",
-        ticketId,
-        "Current activeTicket:",
-        activeTicket?.id,
-        "GamePhase:",
-        gamePhase
-      );
-
-      // If game is in a state where no puzzle should be active, redirect.
-      if (
-        gamePhase === "MAIN_MENU" ||
-        gamePhase === "GAME_OVER" ||
-        gamePhase === "SPRINT_REVIEW"
-      ) {
-        router.replace("/menu");
-      } else if (gamePhase === "SPRINT_PLANNING") {
-        router.replace("/sprint-planning");
-      } else if (
-        gamePhase === "SPRINT_ACTIVE" ||
-        (gamePhase === "PUZZLE_SOLVING" &&
-          (!activeTicket || activeTicket.id !== ticketId))
-      ) {
-        // If in sprint or puzzle solving but the ticket is wrong/missing, go back to sprint board.
-        // This could happen on a direct link to an old puzzle after game state has moved on.
-        router.replace("/sprint-board");
-      }
-      // Otherwise, it might be a transient state while activeTicket is updating.
-      // The "Loading ticket..." message will show.
     }
 
     return () => {
@@ -178,23 +163,6 @@ export default function PuzzleSolvingScreen() {
 
   // The initial loading display before useEffect kicks in:
   if (!activeTicket || activeTicket.id !== ticketId) {
-    // A more robust check here before showing full UI:
-    // If gamePhase clearly indicates this screen is wrong, show loader and let useEffect redirect.
-    if (
-      gamePhase === "MAIN_MENU" ||
-      gamePhase === "GAME_OVER" ||
-      gamePhase === "SPRINT_REVIEW" ||
-      gamePhase === "SPRINT_PLANNING"
-    ) {
-      return (
-        <SafeAreaView style={styles.safeArea}>
-          <View style={[styles.container, { justifyContent: "center" }]}>
-            <ActivityIndicator size="large" />
-          </View>
-        </SafeAreaView>
-      );
-    }
-    // Otherwise, it might be a valid transition, show "Loading ticket..."
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
