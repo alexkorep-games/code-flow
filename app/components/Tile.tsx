@@ -42,14 +42,11 @@ const Tile: React.FC<TileProps> = ({ tileData, size, onPress, isSolved }) => {
           />
         );
       case "curve":
-        // Use Path for curve - starting from top-center, curving to right-center
-        // M = move to, A = arc (rx ry x-axis-rotation large-arc-flag sweep-flag x y)
-        // We draw arc from top edge towards right edge inside the tile boundaries
         return (
           <Path
             d={`M ${halfSize} ${endOffset} A ${halfSize - endOffset} ${
               halfSize - endOffset
-            } 0 0 1 ${size - endOffset} ${halfSize}`}
+            } 0 0 0 ${size - endOffset} ${halfSize}`} // sweep-flag changed from 1 to 0
             stroke={strokeColor}
             strokeWidth={strokeWidth}
             strokeLinecap="butt"
