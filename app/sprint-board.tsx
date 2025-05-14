@@ -1,24 +1,22 @@
 // src/app/sprint-board.tsx
-import { useRouter } from "expo-router"; // Import useRouter
-import React, { useEffect } from "react"; // Import useEffect
+import { Redirect } from "expo-router";
+import React from "react";
 import {
-  ActivityIndicator, // For a loading indicator
   Alert,
   Button,
   FlatList,
   SafeAreaView,
   StyleSheet,
   Text,
-  View,
+  View
 } from "react-native";
 import TicketCard from "./components/TicketCard";
 import { useGame } from "./contexts/GameContext";
 import { Ticket } from "./types/types";
 
 export default function SprintBoardScreen() {
-  const router = useRouter();
   const {
-    gamePhase, // Get gamePhase
+    gamePhase,
     sprintNumber,
     currentSprintTickets,
     selectTicketToWorkOn,
@@ -27,19 +25,8 @@ export default function SprintBoardScreen() {
     endSprintEarly,
   } = useGame();
 
-  useEffect(() => {
-    if (gamePhase !== "SPRINT_ACTIVE") {
-      // console.log("SprintBoardScreen: Incorrect game phase. Expected SPRINT_ACTIVE, got", gamePhase, ". Redirecting to /menu.");
-      router.replace("/menu"); // Use replace to not add to history
-    }
-  }, [gamePhase, router]);
-
   if (gamePhase !== "SPRINT_ACTIVE") {
-    return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#d35400" />
-      </SafeAreaView>
-    );
+    return <Redirect href="/menu" />;
   }
 
   const renderTicketItem = ({ item }: { item: Ticket }) => (
@@ -94,7 +81,7 @@ export default function SprintBoardScreen() {
             title="End Sprint Early"
             onPress={endSprintEarly}
             color="orange"
-            disabled={gamePhase !== "SPRINT_ACTIVE"} // Ensure button is disabled if not in correct phase
+            disabled={gamePhase !== "SPRINT_ACTIVE"}
           />
         </View>
       </View>
@@ -107,13 +94,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 15,
-  },
-  loadingContainer: {
-    // Added for loading state
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#e9eef0",
   },
   header: {
     marginBottom: 20,
