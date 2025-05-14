@@ -1,4 +1,5 @@
 // src/contexts/GameContext.tsx
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import React, {
   createContext,
@@ -8,26 +9,48 @@ import React, {
   useEffect,
   useState,
 } from "react";
-import { Alert } from "react-native";
-import { useGameTimer } from "../../src/hooks/useGameTimer";
 import {
-  addNewTicketsToBacklog,
-  generateInitialBacklog,
-} from "../../src/logic/ticketLogic";
+  ActivityIndicator,
+  Alert,
+  AppState,
+  Platform,
+  Text,
+  View,
+} from "react-native";
+import { useGameTimer } from "../../src/hooks/useGameTimer";
+import { generateInitialBacklog } from "../../src/logic/ticketLogic";
 import * as Config from "../config";
 import { GamePhase, PuzzleState, Ticket, TicketID } from "../types/types";
+
+const GAME_STATE_STORAGE_KEY = "codeFlowGameState_v1.1"; // Increment version if structure changes
+
+interface SavedGameState {
+  gamePhase: GamePhase;
+  sprintNumber: number;
+  backlog: Ticket[];
+  currentSprintTickets: Ticket[];
+  activeTicketId: TicketID | null;
+  sprintTotalTime: number;
+  sprintTimeRemaining: number;
+  isSprintTimerRunning: boolean;
+  totalTicketsCompleted: number;
+  completedTicketsThisSprint: number;
+  savedAt: number;
+}
 
 interface GameContextType {
   gamePhase: GamePhase;
   sprintNumber: number;
   backlog: Ticket[];
   currentSprintTickets: Ticket[];
+  activeTicketId: TicketID | null;
   activeTicket: Ticket | null;
-  sprintTimeRemaining: number;
   sprintTotalTime: number;
+  sprintTimeRemaining: number;
   isSprintTimerRunning: boolean;
   completedTicketsThisSprint: number;
   totalTicketsCompleted: number;
+  isPersistenceLoading: boolean;
 
   startGame: () => void;
   planSprint: () => void;
@@ -41,10 +64,10 @@ interface GameContextType {
     timeSpentOnPuzzle: number
   ) => void;
   completeTicket: (ticketId: TicketID, timeSpentOnPuzzle: number) => void;
-  pauseSprintTimer: () => void;
-  resumeSprintTimer: () => void;
   endSprintEarly: () => void;
   resetGame: () => void;
+  pauseSprintTimer: () => void;
+  resumeSprintTimer: () => void;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -53,6 +76,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
   const router = useRouter();
+  const [isPersistenceLoading, setIsPersistenceLoading] = useState(true);
   const [gamePhase, setGamePhase] = useState<GamePhase>("MAIN_MENU");
   const [sprintNumber, setSprintNumber] = useState(0);
   const [backlog, setBacklog] = useState<Ticket[]>([]);
@@ -60,12 +84,10 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({
     []
   );
   const [activeTicketId, setActiveTicketId] = useState<TicketID | null>(null);
-  const [sprintTotalTime, setSprintTotalTime] = useState(
-    Config.INITIAL_SPRINT_DURATION_SECONDS
-  );
+  const [sprintTotalTime, setSprintTotalTime] = useState(0);
+  const [totalTicketsCompleted, setTotalTicketsCompleted] = useState(0);
   const [completedTicketsThisSprint, setCompletedTicketsThisSprint] =
     useState(0);
-  const [totalTicketsCompleted, setTotalTicketsCompleted] = useState(0);
 
   const handleSprintTimerEnd = useCallback(() => {
     Alert.alert("Sprint Over!", "Time's up for this sprint.", [{ text: "OK" }]);
@@ -73,87 +95,118 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({
   }, []);
 
   const {
-    timeRemaining: sprintTimeRemaining,
-    isRunning: isSprintTimerRunning,
+    timeRemaining,
+    isRunning,
     startTimer: startSprintTimerInternal,
     pauseTimer: pauseSprintTimerInternal,
     resetTimer: resetSprintTimerInternal,
+    setTimeManually: sprintTimerSetTimeManually, // For loading state
   } = useGameTimer({
     initialTime: sprintTotalTime,
     onTimerEnd: handleSprintTimerEnd,
   });
 
-  const activeTicket: Ticket | null = activeTicketId
-    ? currentSprintTickets.find((t) => t.id === activeTicketId) ||
-      backlog.find((t) => t.id === activeTicketId) || null // Ensure null fallback
-    : null;
+  const activeTicket: Ticket | null =
+    activeTicketId != null
+      ? currentSprintTickets.find((t) => t.id === activeTicketId) ||
+        backlog.find((t) => t.id === activeTicketId) ||
+        null
+      : null;
 
-  // Renamed and refactored: This function just sets up the initial state values.
+  const saveGameState = useCallback(async () => {
+    if (Platform.OS === "web")
+      console.log(
+        "Attempting to save game state (web)... Current phase:",
+        gamePhase
+      );
+    const stateToSave: SavedGameState = {
+      gamePhase,
+      sprintNumber,
+      backlog,
+      currentSprintTickets,
+      activeTicketId,
+      sprintTotalTime,
+      sprintTimeRemaining: timeRemaining,
+      isSprintTimerRunning: isRunning,
+      totalTicketsCompleted,
+      completedTicketsThisSprint,
+      savedAt: Date.now(),
+    };
+    try {
+      const jsonState = JSON.stringify(stateToSave);
+      await AsyncStorage.setItem(GAME_STATE_STORAGE_KEY, jsonState);
+      if (Platform.OS === "web")
+        console.log("Game state saved successfully (web).");
+    } catch (e) {
+      console.error("Failed to save game state:", e);
+    }
+  }, [
+    gamePhase,
+    sprintNumber,
+    backlog,
+    currentSprintTickets,
+    activeTicketId,
+    sprintTotalTime,
+    timeRemaining,
+    isRunning,
+    totalTicketsCompleted,
+    completedTicketsThisSprint,
+  ]);
+
+  // --- Game Lifecycle Functions ---
+
   const _initializeNewGameState = useCallback(() => {
     setSprintNumber(1);
-    setBacklog(generateInitialBacklog(1));
+    setBacklog(generateInitialBacklog());
     setCurrentSprintTickets([]);
     setActiveTicketId(null);
+    setSprintTotalTime(Config.INITIAL_SPRINT_DURATION_SECONDS);
     setTotalTicketsCompleted(0);
-    const initialSprintTime = Config.INITIAL_SPRINT_DURATION_SECONDS;
-    setSprintTotalTime(initialSprintTime);
-    resetSprintTimerInternal(initialSprintTime);
-    // No gamePhase set here, no navigation here. Caller handles it.
+    setCompletedTicketsThisSprint(0);
+    resetSprintTimerInternal(Config.INITIAL_SPRINT_DURATION_SECONDS);
   }, [resetSprintTimerInternal]);
 
-  const startGame = useCallback(() => {
+  const startGame = useCallback(async () => {
     _initializeNewGameState();
     setGamePhase("SPRINT_PLANNING");
+    try {
+      await AsyncStorage.removeItem(GAME_STATE_STORAGE_KEY);
+    } catch (e) {
+      console.error("Failed to clear saved state on new game:", e);
+    }
     router.push("/sprint-planning");
-  }, [_initializeNewGameState, router]);
+  }, [_initializeNewGameState, router, saveGameState]);
 
-  const resetGame = useCallback(() => {
-    console.log("Resetting game state...");
+  const resetGame = useCallback(async () => {
     _initializeNewGameState();
     setGamePhase("MAIN_MENU");
-    router.replace("/menu");    // Navigate to menu screen, replacing history
-  }, [_initializeNewGameState, router]);
+    try {
+      await AsyncStorage.removeItem(GAME_STATE_STORAGE_KEY);
+    } catch (e) {
+      console.error("Failed to clear saved state on reset game:", e);
+    }
+    router.replace("/menu");
+  }, [_initializeNewGameState, router, saveGameState]);
 
   const planSprint = useCallback(() => {
-    // Move unfinished sprint tickets back to backlog
-    const unfinishedTickets = currentSprintTickets.filter(
-      (t) => t.status !== "completed"
-    );
-    unfinishedTickets.forEach((t) => (t.status = "backlog")); // or 'paused' if we want to distinguish
-
-    const newBacklog = addNewTicketsToBacklog(
-      [...backlog, ...unfinishedTickets],
-      sprintNumber + 1
-    );
-
-    if (newBacklog.length > Config.MAX_BACKLOG_BEFORE_GAME_OVER) {
-      setGamePhase("GAME_OVER");
-      router.push("/game-over");
-      return;
-    }
-
-    setBacklog(newBacklog);
+    setBacklog((prevBacklog) => [
+      ...prevBacklog,
+      ...currentSprintTickets.filter((t) => t.status !== "completed"),
+    ]);
     setCurrentSprintTickets([]);
-    setSprintNumber((prev) => prev + 1);
+    setActiveTicketId(null);
+    setSprintTotalTime(Config.INITIAL_SPRINT_DURATION_SECONDS);
+    resetSprintTimerInternal(Config.INITIAL_SPRINT_DURATION_SECONDS);
     setCompletedTicketsThisSprint(0);
-
-    // Adjust sprint time for difficulty scaling
-    const nextSprintTime = Math.max(
-      Config.MIN_SPRINT_DURATION,
-      Config.INITIAL_SPRINT_DURATION_SECONDS -
-        sprintNumber * Config.SPRINT_TIME_REDUCTION_PER_SPRINT
-    );
-    setSprintTotalTime(nextSprintTime);
-    resetSprintTimerInternal(nextSprintTime);
-
     setGamePhase("SPRINT_PLANNING");
     router.push("/sprint-planning");
+    saveGameState();
   }, [
     backlog,
     currentSprintTickets,
-    sprintNumber,
-    router,
     resetSprintTimerInternal,
+    router,
+    saveGameState,
   ]);
 
   useEffect(() => {
@@ -191,7 +244,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({
     [currentSprintTickets]
   );
 
-  const startSprint = useCallback(() => {
+  const startSprint = useCallback(async () => {
     if (currentSprintTickets.length === 0) {
       Alert.alert(
         "Empty Sprint",
@@ -199,11 +252,12 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({
       );
       return;
     }
-    currentSprintTickets.forEach((t) => (t.status = "sprint")); // Ensure status
+    currentSprintTickets.forEach((t) => (t.status = "sprint"));
     setGamePhase("SPRINT_ACTIVE");
     startSprintTimerInternal();
     router.push("/sprint-board");
-  }, [currentSprintTickets, router, startSprintTimerInternal]);
+    await saveGameState();
+  }, [currentSprintTickets, router, startSprintTimerInternal, saveGameState]);
 
   const selectTicketToWorkOn = useCallback(
     (ticketId: TicketID) => {
@@ -234,7 +288,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({
   }, [gamePhase, activeTicketId, startSprintTimerInternal]);
 
   const saveAndExitPuzzle = useCallback(
-    (
+    async (
       ticketId: TicketID,
       currentPuzzleState: PuzzleState,
       timeSpentOnPuzzle: number
@@ -255,14 +309,15 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({
       }
       setActiveTicketId(null);
       setGamePhase("SPRINT_ACTIVE");
-      pauseSprintTimerInternal(); // Pause timer when back on sprint board
+      pauseSprintTimerInternal();
+      await saveGameState();
       router.push("/sprint-board");
     },
-    [currentSprintTickets, router, pauseSprintTimerInternal]
+    [currentSprintTickets, router, pauseSprintTimerInternal, saveGameState]
   );
 
   const completeTicket = useCallback(
-    (ticketId: TicketID, timeSpentOnPuzzle: number) => {
+    async (ticketId: TicketID, timeSpentOnPuzzle: number) => {
       const ticketIndex = currentSprintTickets.findIndex(
         (t) => t.id === ticketId
       );
@@ -280,20 +335,108 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({
       }
       setActiveTicketId(null);
       setGamePhase("SPRINT_ACTIVE");
-      pauseSprintTimerInternal(); // Pause timer when back on sprint board
-      // Potentially add bonus time for completing a ticket
-      // addTime(updatedTickets[ticketIndex].storyPoints * 5); // e.g. 5s per story point
+      pauseSprintTimerInternal();
+      await saveGameState();
       router.push("/sprint-board");
     },
-    [currentSprintTickets, router, pauseSprintTimerInternal]
+    [currentSprintTickets, router, pauseSprintTimerInternal, saveGameState]
   );
 
-  const endSprintEarly = useCallback(() => {
+  const endSprintEarly = useCallback(async () => {
     pauseSprintTimerInternal();
     setGamePhase("SPRINT_REVIEW");
-    // router.push will be handled by useEffect on gamePhase change
-  }, [pauseSprintTimerInternal]);
+    await saveGameState();
+  }, [pauseSprintTimerInternal, saveGameState]);
 
+  // --- Persistence useEffects ---
+
+  useEffect(() => {
+    const loadState = async () => {
+      try {
+        const jsonState = await AsyncStorage.getItem(GAME_STATE_STORAGE_KEY);
+        if (jsonState !== null) {
+          const loadedState = JSON.parse(jsonState) as SavedGameState;
+          if (Platform.OS === "web")
+            console.log(
+              "Loaded game state (web):",
+              loadedState.gamePhase,
+              "Sprint:",
+              loadedState.sprintNumber
+            );
+          setGamePhase(loadedState.gamePhase);
+          setSprintNumber(loadedState.sprintNumber);
+          setBacklog(loadedState.backlog);
+          setCurrentSprintTickets(loadedState.currentSprintTickets);
+          setActiveTicketId(loadedState.activeTicketId);
+          setSprintTotalTime(loadedState.sprintTotalTime);
+          resetSprintTimerInternal(loadedState.sprintTotalTime);
+          sprintTimerSetTimeManually(loadedState.sprintTimeRemaining);
+          setTotalTicketsCompleted(loadedState.totalTicketsCompleted);
+          setCompletedTicketsThisSprint(loadedState.completedTicketsThisSprint);
+          if (
+            loadedState.isSprintTimerRunning &&
+            loadedState.sprintTimeRemaining > 0
+          ) {
+            if (
+              loadedState.gamePhase === "PUZZLE_SOLVING" ||
+              (loadedState.gamePhase === "SPRINT_ACTIVE" &&
+                loadedState.isSprintTimerRunning)
+            ) {
+              startSprintTimerInternal();
+            }
+          } else {
+            pauseSprintTimerInternal();
+          }
+        } else {
+          if (Platform.OS === "web")
+            console.log("No saved game state found (web), starting fresh.");
+          setGamePhase("MAIN_MENU");
+        }
+      } catch (e) {
+        console.error("Failed to load game state:", e);
+        setGamePhase("MAIN_MENU");
+      } finally {
+        setIsPersistenceLoading(false);
+      }
+    };
+    loadState();
+  }, []);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener(
+      "change",
+      async (nextAppState) => {
+        if (nextAppState.match(/inactive|background/)) {
+          if (Platform.OS === "web")
+            console.log(
+              "App going to background/inactive (web). Saving state..."
+            );
+          await saveGameState();
+        }
+      }
+    );
+    return () => {
+      subscription.remove();
+    };
+  }, [saveGameState]);
+
+  if (isPersistenceLoading && Platform.OS !== "web") {
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: "#f0f0f0",
+        }}
+      >
+        <ActivityIndicator size="large" color="#3498db" />
+        <Text style={{ marginTop: 10 }}>Loading game...</Text>
+      </View>
+    );
+  }
+
+  // Update context value to use correct timer state
   return (
     <GameContext.Provider
       value={{
@@ -301,12 +444,14 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({
         sprintNumber,
         backlog,
         currentSprintTickets,
+        activeTicketId,
         activeTicket,
-        sprintTimeRemaining,
         sprintTotalTime,
-        isSprintTimerRunning,
+        sprintTimeRemaining: timeRemaining,
+        isSprintTimerRunning: isRunning,
         completedTicketsThisSprint,
         totalTicketsCompleted,
+        isPersistenceLoading,
         startGame,
         planSprint,
         addTicketToSprint,
@@ -315,10 +460,10 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({
         selectTicketToWorkOn,
         saveAndExitPuzzle,
         completeTicket,
-        pauseSprintTimer,
-        resumeSprintTimer,
         endSprintEarly,
         resetGame,
+        pauseSprintTimer,
+        resumeSprintTimer,
       }}
     >
       {children}

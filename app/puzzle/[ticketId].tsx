@@ -2,6 +2,7 @@
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react"; // Added useCallback
 import {
+  AppState,
   Button,
   Dimensions,
   SafeAreaView,
@@ -139,6 +140,42 @@ export default function PuzzleSolvingScreen() {
     const size = puzzleState?.N || 5;
     return Math.floor(maxGridWidth / size);
   }, [puzzleState?.N]);
+
+  // AppState listener for auto-saving puzzle progress when app backgrounds
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
+      if (
+        nextAppState.match(/inactive|background/) &&
+        gamePhase === "PUZZLE_SOLVING" &&
+        activeTicket &&
+        activeTicket.id === ticketId &&
+        puzzleState
+      ) {
+        // console.log('PuzzleScreen: App inactive/background, saving current puzzle state.');
+        // This call will update the ticket in GameContext via saveAndExitPuzzle,
+        // which internally calls saveGameState from GameContext.
+        // No need to await here as GameContext's own AppState listener will handle saving.
+        // The main goal is to update the ticket in GameContext *before* GameContext saves.
+        saveAndExitPuzzle(
+          activeTicket.id,
+          { ...puzzleState, grid: getCurrentGrid() || puzzleState.grid },
+          timeSpentOnPuzzle
+        );
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [
+    gamePhase,
+    activeTicket,
+    ticketId,
+    puzzleState,
+    saveAndExitPuzzle,
+    timeSpentOnPuzzle,
+    getCurrentGrid,
+  ]);
 
   if (
     gamePhase === "MAIN_MENU" ||
