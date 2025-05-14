@@ -47,27 +47,6 @@ export default function PuzzleSolvingScreen() {
     resetPuzzleTimer,
   } = usePuzzleState({ initialPuzzle: null });
 
-  if (
-    gamePhase === "MAIN_MENU" ||
-    gamePhase === "GAME_OVER" ||
-    gamePhase === "SPRINT_REVIEW"
-  ) {
-    return <Redirect href="/menu" />;
-  }
-  if (gamePhase === "SPRINT_PLANNING") {
-    return <Redirect href="/sprint-planning" />;
-  }
-  if (gamePhase === "SPRINT_ACTIVE") {
-    return <Redirect href="/sprint-board" />;
-  }
-  // If we *are* in PUZZLE_SOLVING, but the activeTicket doesn't match this ticketId:
-  if (
-    gamePhase === "PUZZLE_SOLVING" &&
-    (!activeTicket || activeTicket.id !== ticketId)
-  ) {
-    return <Redirect href="/sprint-board" />;
-  }
-
   // Effect to load puzzle when activeTicket changes or screen mounts with a ticketId
   useEffect(() => {
     if (
@@ -160,6 +139,27 @@ export default function PuzzleSolvingScreen() {
     const size = puzzleState?.N || 5;
     return Math.floor(maxGridWidth / size);
   }, [puzzleState?.N]);
+
+  if (
+    gamePhase === "MAIN_MENU" ||
+    gamePhase === "GAME_OVER" ||
+    gamePhase === "SPRINT_REVIEW"
+  ) {
+    return <Redirect href="/menu" />;
+  }
+  if (gamePhase === "SPRINT_PLANNING") {
+    return <Redirect href="/sprint-planning" />;
+  }
+  if (gamePhase === "SPRINT_ACTIVE") {
+    return <Redirect href="/sprint-board" />;
+  }
+  // If we *are* in PUZZLE_SOLVING, but the activeTicket doesn't match this ticketId:
+  if (
+    gamePhase === "PUZZLE_SOLVING" &&
+    (!activeTicket || activeTicket.id !== ticketId)
+  ) {
+    return <Redirect href="/sprint-board" />;
+  }
 
   // The initial loading display before useEffect kicks in:
   if (!activeTicket || activeTicket.id !== ticketId) {
