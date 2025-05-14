@@ -83,12 +83,13 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({
     onTimerEnd: handleSprintTimerEnd,
   });
 
-  const activeTicket = activeTicketId
+  const activeTicket: Ticket | null = activeTicketId
     ? currentSprintTickets.find((t) => t.id === activeTicketId) ||
-      backlog.find((t) => t.id === activeTicketId) // Should be in currentSprintTickets if active
+      backlog.find((t) => t.id === activeTicketId) || null // Ensure null fallback
     : null;
 
-  const startGame = useCallback(() => {
+  // Renamed and refactored: This function just sets up the initial state values.
+  const _initializeNewGameState = useCallback(() => {
     setSprintNumber(1);
     setBacklog(generateInitialBacklog(1));
     setCurrentSprintTickets([]);
@@ -97,14 +98,21 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({
     const initialSprintTime = Config.INITIAL_SPRINT_DURATION_SECONDS;
     setSprintTotalTime(initialSprintTime);
     resetSprintTimerInternal(initialSprintTime);
+    // No gamePhase set here, no navigation here. Caller handles it.
+  }, [resetSprintTimerInternal]);
+
+  const startGame = useCallback(() => {
+    _initializeNewGameState();
     setGamePhase("SPRINT_PLANNING");
     router.push("/sprint-planning");
-  }, [router, resetSprintTimerInternal]);
+  }, [_initializeNewGameState, router]);
 
   const resetGame = useCallback(() => {
-    startGame(); // For now, reset just starts a new game
-    router.push("/menu"); // Go back to menu
-  }, [startGame, router]);
+    console.log("Resetting game state...");
+    _initializeNewGameState();
+    setGamePhase("MAIN_MENU");
+    router.replace("/menu");    // Navigate to menu screen, replacing history
+  }, [_initializeNewGameState, router]);
 
   const planSprint = useCallback(() => {
     // Move unfinished sprint tickets back to backlog
