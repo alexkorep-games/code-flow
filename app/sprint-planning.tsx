@@ -1,5 +1,4 @@
 // src/app/sprint-planning.tsx
-import { Redirect } from "expo-router";
 import React from "react"; // Import useEffect
 import {
   Button,
@@ -24,10 +23,12 @@ export default function SprintPlanningScreen() {
     removeTicketFromSprint,
     startSprint,
     sprintTotalTime,
+    setCurrentScreen, // Add this from context
   } = useGame();
 
+  // Remove Redirect usage
   if (gamePhase !== "SPRINT_PLANNING") {
-    return <Redirect href="/menu" />;
+    return null;
   }
 
   const renderTicketItem = ({ item }: { item: Ticket }) => (

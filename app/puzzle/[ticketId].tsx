@@ -1,5 +1,4 @@
 // src/app/puzzle/[ticketId].tsx
-import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react"; // Added useCallback
 import {
   AppState,
@@ -18,9 +17,8 @@ import { usePuzzleState } from "../../src/hooks/usePuzzleState"; // Correct path
 const screenWidth = Dimensions.get("window").width;
 const maxGridWidth = screenWidth * 0.9;
 
-export default function PuzzleSolvingScreen() {
-  const router = useRouter();
-  const { ticketId } = useLocalSearchParams<{ ticketId: string }>();
+// Accept ticketId as prop for direct rendering
+export default function PuzzleSolvingScreen({ ticketId }: { ticketId: string }) {
   const {
     activeTicket,
     saveAndExitPuzzle,
@@ -77,7 +75,6 @@ export default function PuzzleSolvingScreen() {
     pauseSprintTimer,
     pauseLocalPuzzleTimer,
     gamePhase, // Add gamePhase to dependency array
-    router, // Add router to dependency array
   ]);
 
   // Memoize handleSolve to stabilize its reference and define dependencies clearly
@@ -123,8 +120,6 @@ export default function PuzzleSolvingScreen() {
         { ...puzzleState, grid: getCurrentGrid() || puzzleState.grid },
         timeSpentOnPuzzle
       );
-    } else {
-      router.back();
     }
   };
 
@@ -182,20 +177,20 @@ export default function PuzzleSolvingScreen() {
     gamePhase === "GAME_OVER" ||
     gamePhase === "SPRINT_REVIEW"
   ) {
-    return <Redirect href="/menu" />;
+    return null; // <Redirect href="/menu" />;
   }
   if (gamePhase === "SPRINT_PLANNING") {
-    return <Redirect href="/sprint-planning" />;
+    return null; // <Redirect href="/sprint-planning" />;
   }
   if (gamePhase === "SPRINT_ACTIVE") {
-    return <Redirect href="/sprint-board" />;
+    return null; // <Redirect href="/sprint-board" />;
   }
   // If we *are* in PUZZLE_SOLVING, but the activeTicket doesn't match this ticketId:
   if (
     gamePhase === "PUZZLE_SOLVING" &&
     (!activeTicket || activeTicket.id !== ticketId)
   ) {
-    return <Redirect href="/sprint-board" />;
+    return null; // <Redirect href="/sprint-board" />;
   }
 
   // The initial loading display before useEffect kicks in:
@@ -207,9 +202,7 @@ export default function PuzzleSolvingScreen() {
           {/* Optionally, add a button to go back if stuck */}
           <Button
             title="Go Back"
-            onPress={() =>
-              router.canGoBack() ? router.back() : router.replace("/menu")
-            }
+            onPress={() => null} // router.canGoBack() ? router.back() : router.replace("/menu")
           />
         </View>
       </SafeAreaView>

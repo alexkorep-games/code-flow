@@ -4,7 +4,8 @@ import { Button, SafeAreaView, StyleSheet, Text, View } from "react-native";
 import { useGame } from "../src/contexts/GameContext";
 
 export default function GameOverScreen() {
-  const { sprintNumber, totalTicketsCompleted, resetGame } = useGame();
+  const { sprintNumber, totalTicketsCompleted, resetGame, setCurrentScreen } =
+    useGame();
 
   return (
     <SafeAreaView style={styles.safeArea}>

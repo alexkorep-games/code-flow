@@ -1,6 +1,5 @@
 // src/contexts/GameContext.tsx
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useRouter } from "expo-router";
 import React, {
   createContext,
   ReactNode,
@@ -51,6 +50,7 @@ interface GameContextType {
   completedTicketsThisSprint: number;
   totalTicketsCompleted: number;
   isPersistenceLoading: boolean;
+  currentScreen: string;
 
   startGame: () => void;
   planSprint: () => void;
@@ -68,6 +68,7 @@ interface GameContextType {
   resetGame: () => void;
   pauseSprintTimer: () => void;
   resumeSprintTimer: () => void;
+  setCurrentScreen: (screen: string) => void;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -75,7 +76,6 @@ const GameContext = createContext<GameContextType | undefined>(undefined);
 export const GameProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
-  const router = useRouter();
   const [isPersistenceLoading, setIsPersistenceLoading] = useState(true);
   const [gamePhase, setGamePhase] = useState<GamePhase>("MAIN_MENU");
   const [sprintNumber, setSprintNumber] = useState(0);
@@ -88,6 +88,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({
   const [totalTicketsCompleted, setTotalTicketsCompleted] = useState(0);
   const [completedTicketsThisSprint, setCompletedTicketsThisSprint] =
     useState(0);
+  const [currentScreen, setCurrentScreen] = useState<string>("menu");
 
   const handleSprintTimerEnd = useCallback(() => {
     Alert.alert("Sprint Over!", "Time's up for this sprint.", [{ text: "OK" }]);
@@ -169,24 +170,24 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({
   const startGame = useCallback(async () => {
     _initializeNewGameState();
     setGamePhase("SPRINT_PLANNING");
+    setCurrentScreen("sprint-planning");
     try {
       await AsyncStorage.removeItem(GAME_STATE_STORAGE_KEY);
     } catch (e) {
       console.error("Failed to clear saved state on new game:", e);
     }
-    router.push("/sprint-planning");
-  }, [_initializeNewGameState, router, saveGameState]);
+  }, [_initializeNewGameState]);
 
   const resetGame = useCallback(async () => {
     _initializeNewGameState();
     setGamePhase("MAIN_MENU");
+    setCurrentScreen("menu");
     try {
       await AsyncStorage.removeItem(GAME_STATE_STORAGE_KEY);
     } catch (e) {
       console.error("Failed to clear saved state on reset game:", e);
     }
-    router.replace("/menu");
-  }, [_initializeNewGameState, router, saveGameState]);
+  }, [_initializeNewGameState]);
 
   const planSprint = useCallback(() => {
     setBacklog((prevBacklog) => [
@@ -199,15 +200,9 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({
     resetSprintTimerInternal(Config.INITIAL_SPRINT_DURATION_SECONDS);
     setCompletedTicketsThisSprint(0);
     setGamePhase("SPRINT_PLANNING");
-    router.push("/sprint-planning");
+    setCurrentScreen("sprint-planning");
     saveGameState();
-  }, [
-    backlog,
-    currentSprintTickets,
-    resetSprintTimerInternal,
-    router,
-    saveGameState,
-  ]);
+  }, [backlog, currentSprintTickets, resetSprintTimerInternal, saveGameState]);
 
   useEffect(() => {
     if (gamePhase === "SPRINT_REVIEW") {
@@ -254,10 +249,18 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({
     }
     currentSprintTickets.forEach((t) => (t.status = "sprint"));
     setGamePhase("SPRINT_ACTIVE");
+    setCurrentScreen("sprint-board");
     startSprintTimerInternal();
-    router.push("/sprint-board");
     await saveGameState();
-  }, [currentSprintTickets, router, startSprintTimerInternal, saveGameState]);
+  }, [currentSprintTickets, startSprintTimerInternal, saveGameState]);
+
+  // Move resumeSprintTimer definition above selectTicketToWorkOn to avoid TDZ error
+  const resumeSprintTimer = useCallback(() => {
+    if (gamePhase === "PUZZLE_SOLVING" && activeTicketId) {
+      // Only resume if a puzzle is active
+      startSprintTimerInternal();
+    }
+  }, [gamePhase, activeTicketId, startSprintTimerInternal]);
 
   const selectTicketToWorkOn = useCallback(
     (ticketId: TicketID) => {
@@ -266,11 +269,11 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({
         setActiveTicketId(ticketId);
         ticket.status = "in-progress";
         setGamePhase("PUZZLE_SOLVING");
-        resumeSprintTimer(); // Timer runs when solving
-        router.push(`/puzzle/${ticketId}`);
+        setCurrentScreen("puzzle");
+        resumeSprintTimer();
       }
     },
-    [currentSprintTickets, router]
+    [currentSprintTickets, resumeSprintTimer]
   );
 
   const pauseSprintTimer = useCallback(() => {
@@ -279,13 +282,6 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({
       pauseSprintTimerInternal();
     }
   }, [gamePhase, pauseSprintTimerInternal]);
-
-  const resumeSprintTimer = useCallback(() => {
-    if (gamePhase === "PUZZLE_SOLVING" && activeTicketId) {
-      // Only resume if a puzzle is active
-      startSprintTimerInternal();
-    }
-  }, [gamePhase, activeTicketId, startSprintTimerInternal]);
 
   const saveAndExitPuzzle = useCallback(
     async (
@@ -301,7 +297,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({
         updatedTickets[ticketIndex] = {
           ...updatedTickets[ticketIndex],
           currentPuzzleState,
-          status: "paused", // Or keep as "sprint" if just navigating away
+          status: "paused",
           timeSpent:
             (updatedTickets[ticketIndex].timeSpent || 0) + timeSpentOnPuzzle,
         };
@@ -309,11 +305,11 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({
       }
       setActiveTicketId(null);
       setGamePhase("SPRINT_ACTIVE");
+      setCurrentScreen("sprint-board");
       pauseSprintTimerInternal();
       await saveGameState();
-      router.push("/sprint-board");
     },
-    [currentSprintTickets, router, pauseSprintTimerInternal, saveGameState]
+    [currentSprintTickets, pauseSprintTimerInternal, saveGameState]
   );
 
   const completeTicket = useCallback(
@@ -335,11 +331,11 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({
       }
       setActiveTicketId(null);
       setGamePhase("SPRINT_ACTIVE");
+      setCurrentScreen("sprint-board");
       pauseSprintTimerInternal();
       await saveGameState();
-      router.push("/sprint-board");
     },
-    [currentSprintTickets, router, pauseSprintTimerInternal, saveGameState]
+    [currentSprintTickets, pauseSprintTimerInternal, saveGameState]
   );
 
   const endSprintEarly = useCallback(async () => {
@@ -452,6 +448,8 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({
         completedTicketsThisSprint,
         totalTicketsCompleted,
         isPersistenceLoading,
+        currentScreen,
+        setCurrentScreen,
         startGame,
         planSprint,
         addTicketToSprint,

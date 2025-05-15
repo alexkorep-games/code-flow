@@ -1,5 +1,4 @@
 // src/app/sprint-board.tsx
-import { Redirect } from "expo-router";
 import React from "react";
 import {
   Alert,
@@ -23,10 +22,12 @@ export default function SprintBoardScreen() {
     sprintTimeRemaining,
     completedTicketsThisSprint,
     endSprintEarly,
+    setCurrentScreen, // Add this from context
   } = useGame();
 
+  // Remove Redirect usage
   if (gamePhase !== "SPRINT_ACTIVE") {
-    return <Redirect href="/menu" />;
+    return null;
   }
 
   const renderTicketItem = ({ item }: { item: Ticket }) => (

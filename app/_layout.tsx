@@ -1,5 +1,4 @@
 // src/app/_layout.tsx
-import { Stack } from "expo-router";
 import { Alert, Button, Platform, StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler"; // For potential future gestures
 import { GameProvider, useGame } from "../src/contexts/GameContext";
@@ -56,39 +55,32 @@ const NewGameHeaderButton = () => {
   );
 };
 
+// Remove Stack and all router-based navigation. Render screens based on context.
+import GameOverScreen from "./game-over";
+import MenuScreen from "./menu";
+import PuzzleSolvingScreen from "./puzzle/[ticketId]";
+import SprintBoardScreen from "./sprint-board";
+import SprintPlanningScreen from "./sprint-planning";
+
+const AppScreens = () => {
+  const { gamePhase, currentScreen, activeTicketId } = useGame();
+
+  // Decide which screen to show based on gamePhase
+  if (gamePhase === "GAME_OVER") return <GameOverScreen />;
+  if (gamePhase === "MAIN_MENU") return <MenuScreen />;
+  if (gamePhase === "SPRINT_PLANNING") return <SprintPlanningScreen />;
+  if (gamePhase === "SPRINT_ACTIVE") return <SprintBoardScreen />;
+  if (gamePhase === "PUZZLE_SOLVING" && activeTicketId)
+    return <PuzzleSolvingScreen ticketId={activeTicketId} />;
+  // Fallback
+  return <MenuScreen />;
+};
+
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <GameProvider>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="index" />
-          <Stack.Screen name="menu" />
-          <Stack.Screen
-            name="sprint-planning"
-            options={{
-              headerShown: true,
-              title: "Sprint Planning",
-              headerRight: () => <NewGameHeaderButton />,
-            }}
-          />
-          <Stack.Screen
-            name="sprint-board"
-            options={{
-              headerShown: true,
-              title: "Sprint Board",
-              headerRight: () => <NewGameHeaderButton />,
-            }}
-          />
-          <Stack.Screen
-            name="puzzle/[ticketId]"
-            options={{
-              headerShown: true,
-              title: "Solve Puzzle",
-              headerRight: () => <NewGameHeaderButton />,
-            }}
-          />
-          <Stack.Screen name="game-over" />
-        </Stack>
+        <AppScreens />
       </GameProvider>
     </GestureHandlerRootView>
   );
@@ -96,6 +88,6 @@ export default function RootLayout() {
 
 const styles = StyleSheet.create({
   headerButtonContainer: {
-    marginRight: Platform.OS === "ios" ? 0 : 10, // iOS handles spacing, Android might need it for button not to be flush with edge
+    marginRight: Platform.OS === "ios" ? 0 : 10,
   },
 });

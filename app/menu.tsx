@@ -4,7 +4,7 @@ import { Button, SafeAreaView, StyleSheet, Text, View } from "react-native";
 import { useGame } from "../src/contexts/GameContext";
 
 export default function MenuScreen() {
-  const { startGame } = useGame();
+  const { startGame, setCurrentScreen } = useGame();
 
   return (
     <SafeAreaView style={styles.safeArea}>
