@@ -26,7 +26,7 @@ export default function PuzzleSolvingScreen({ ticketId }: { ticketId: string }) 
     resumeSprintTimer,
     pauseSprintTimer,
     isSprintTimerRunning,
-    gamePhase, // <-- Add this from context
+    gamePhase,
   } = useGame();
 
   const [currentLoadedTicketId, setCurrentLoadedTicketId] = useState<
