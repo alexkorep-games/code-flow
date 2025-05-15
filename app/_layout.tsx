@@ -88,11 +88,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "#dcdcdc",
-    // Add shadow for a bit of elevation, similar to the original button's feel but for a bar
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
     elevation: 3,
   },
   // Use this if you want to reserve toolbar space even when it's 'empty' on MAIN_MENU

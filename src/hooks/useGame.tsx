@@ -167,8 +167,6 @@ export const useGame = (): UseGameResult => {
   }, [resetSprintTimerInternal]);
 
   const startGame = useCallback(async () => {
-    alert('!!')
-    console.log("Starting new game...");
     _initializeNewGameState();
     setGamePhase("SPRINT_PLANNING");
     setCurrentScreen("sprint-planning");
