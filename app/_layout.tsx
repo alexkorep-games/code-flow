@@ -22,8 +22,6 @@ const Toolbar: React.FC = () => {
   // Don't show the toolbar (or Menu button) on the Main Menu screen
   if (gamePhase === "MAIN_MENU") {
     return null;
-    // Alternatively, to maintain space if a title or other elements were present:
-    // return <View style={styles.toolbarPlaceholder} />;
   }
 
   return (
@@ -61,8 +59,6 @@ const AppScreens = () => {
     <View style={{ flex: 1 }}>
       <Toolbar /> {/* The Toolbar is now part of the layout flow */}
       <View style={{ flex: 1 }}>
-        {" "}
-        {/* This View will contain the actual screen content */}
         {ScreenComponent}
       </View>
     </View>
@@ -90,13 +86,8 @@ const styles = StyleSheet.create({
     borderBottomColor: "#dcdcdc",
     elevation: 3,
   },
-  // Use this if you want to reserve toolbar space even when it's 'empty' on MAIN_MENU
-  // toolbarPlaceholder: {
-  //   height: Platform.OS === 'ios' ? 70 : 56,
-  // },
   toolbarTitleContainer: {
     flex: 1, // Allows title to take space, pushing button to the right
-    // Add <Text> with title here if needed
   },
   toolbarButton: {
     paddingVertical: 8,
@@ -109,5 +100,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
   },
-  // Removed: menuButtonContainer (as it's replaced by toolbar styles)
 });
