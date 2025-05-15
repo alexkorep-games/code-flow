@@ -10,7 +10,7 @@ import {
 } from "react-native";
 
 import TicketCard from "../components/TicketCard";
-import { useGame } from "../contexts/GameContext";
+import { useGame } from "../hooks/useGame";
 import { Ticket } from "../types/types";
 
 export default function SprintPlanningScreen() {

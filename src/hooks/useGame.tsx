@@ -2,8 +2,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { atom, useAtom } from "jotai";
 import React, {
-  createContext,
-  ReactNode,
   useCallback,
   useEffect
 } from "react";
@@ -15,10 +13,10 @@ import {
   Text,
   View,
 } from "react-native";
-import { useGameTimer } from "../../src/hooks/useGameTimer";
-import { generateInitialBacklog } from "../../src/logic/ticketLogic";
 import * as Config from "../config";
+import { generateInitialBacklog } from "../logic/ticketLogic";
 import { GamePhase, PuzzleState, Ticket, TicketID } from "../types/types";
+import { useGameTimer } from "./useGameTimer";
 
 const GAME_STATE_STORAGE_KEY = "codeFlowGameState_v1.1"; // Increment version if structure changes
 
@@ -36,7 +34,7 @@ interface SavedGameState {
   savedAt: number;
 }
 
-interface GameContextType {
+interface UseGameResult {
   gamePhase: GamePhase;
   sprintNumber: number;
   backlog: Ticket[];
@@ -72,8 +70,6 @@ interface GameContextType {
   goToMenu: () => void;
 }
 
-const GameContext = createContext<GameContextType | undefined>(undefined);
-
 // Atoms for all stateful values
 const isPersistenceLoadingAtom = atom(true);
 const gamePhaseAtom = atom<GamePhase>("MAIN_MENU");
@@ -86,11 +82,7 @@ const totalTicketsCompletedAtom = atom(0);
 const completedTicketsThisSprintAtom = atom(0);
 const currentScreenAtom = atom<string>("menu");
 
-export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  return <>{children}</>;
-};
-
-export const useGame = () => {
+export const useGame = (): UseGameResult => {
   // Use jotai atoms for all state
   const [gamePhase, setGamePhase] = useAtom(gamePhaseAtom);
   const [sprintNumber, setSprintNumber] = useAtom(sprintNumberAtom);
@@ -175,6 +167,8 @@ export const useGame = () => {
   }, [resetSprintTimerInternal]);
 
   const startGame = useCallback(async () => {
+    alert('!!')
+    console.log("Starting new game...");
     _initializeNewGameState();
     setGamePhase("SPRINT_PLANNING");
     setCurrentScreen("sprint-planning");

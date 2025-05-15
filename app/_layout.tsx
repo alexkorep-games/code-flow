@@ -8,7 +8,7 @@ import {
   View,
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler"; // For potential future gestures
-import { GameProvider, useGame } from "../src/contexts/GameContext";
+import { useGame } from "../src/hooks/useGame";
 import GameOverScreen from "../src/screens/game-over";
 import MenuScreen from "../src/screens/menu";
 import PuzzleSolvingScreen from "../src/screens/puzzle";
@@ -72,9 +72,7 @@ const AppScreens = () => {
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <GameProvider>
-        <AppScreens />
-      </GameProvider>
+      <AppScreens />
     </GestureHandlerRootView>
   );
 }

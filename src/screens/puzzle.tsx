@@ -11,7 +11,7 @@ import {
   View,
 } from "react-native";
 import PuzzleGrid from "../components/PuzzleGrid";
-import { useGame } from "../contexts/GameContext";
+import { useGame } from "../hooks/useGame";
 import { usePuzzleState } from "../hooks/usePuzzleState"; // Correct path
 
 const screenWidth = Dimensions.get("window").width;

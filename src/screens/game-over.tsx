@@ -1,7 +1,7 @@
 // src/app/game-over.tsx
 import React from "react";
 import { Button, SafeAreaView, StyleSheet, Text, View } from "react-native";
-import { useGame } from "../contexts/GameContext";
+import { useGame } from "../hooks/useGame";
 
 export default function GameOverScreen() {
   const { sprintNumber, totalTicketsCompleted, resetGame, setCurrentScreen } =
