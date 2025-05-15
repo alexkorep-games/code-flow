@@ -2,6 +2,12 @@
 import { Alert, Button, Platform, StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler"; // For potential future gestures
 import { GameProvider, useGame } from "../src/contexts/GameContext";
+import GameOverScreen from "../src/screens/game-over";
+import MenuScreen from "../src/screens/menu";
+import PuzzleSolvingScreen from "../src/screens/puzzle";
+import SprintBoardScreen from "../src/screens/sprint-board";
+import SprintPlanningScreen from "../src/screens/sprint-planning";
+
 
 // Header button component
 const NewGameHeaderButton = () => {
@@ -55,15 +61,8 @@ const NewGameHeaderButton = () => {
   );
 };
 
-// Remove Stack and all router-based navigation. Render screens based on context.
-import GameOverScreen from "./game-over";
-import MenuScreen from "./menu";
-import PuzzleSolvingScreen from "./puzzle/[ticketId]";
-import SprintBoardScreen from "./sprint-board";
-import SprintPlanningScreen from "./sprint-planning";
-
 const AppScreens = () => {
-  const { gamePhase, currentScreen, activeTicketId } = useGame();
+  const { gamePhase, activeTicketId } = useGame();
 
   // Decide which screen to show based on gamePhase
   if (gamePhase === "GAME_OVER") return <GameOverScreen />;

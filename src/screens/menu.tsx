@@ -1,7 +1,7 @@
 // src/app/menu.tsx
 import React from "react";
 import { Button, SafeAreaView, StyleSheet, Text, View } from "react-native";
-import { useGame } from "../src/contexts/GameContext";
+import { useGame } from "../contexts/GameContext";
 
 export default function MenuScreen() {
   const { startGame, loadState } = useGame();
@@ -12,9 +12,10 @@ export default function MenuScreen() {
         <Text style={styles.title}>Code Flow</Text>
         <Text style={styles.subtitle}>The Developer's Puzzle Challenge</Text>
         <View style={styles.buttonContainer}>
-          <Button title="Start New Game" onPress={startGame} />
+          <View style={{ marginBottom: 16 }}>
+            <Button title="Start New Game" onPress={startGame} />
+          </View>
           <Button title="Continue Game" onPress={loadState} />
-          
         </View>
         {/* TODO: Add "How to Play", "Settings" if time permits */}
       </View>

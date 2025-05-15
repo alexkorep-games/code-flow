@@ -10,9 +10,9 @@ import {
   Text,
   View,
 } from "react-native";
-import PuzzleGrid from "../../src/components/PuzzleGrid";
-import { useGame } from "../../src/contexts/GameContext";
-import { usePuzzleState } from "../../src/hooks/usePuzzleState"; // Correct path
+import PuzzleGrid from "../components/PuzzleGrid";
+import { useGame } from "../contexts/GameContext";
+import { usePuzzleState } from "../hooks/usePuzzleState"; // Correct path
 
 const screenWidth = Dimensions.get("window").width;
 const maxGridWidth = screenWidth * 0.9;
