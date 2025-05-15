@@ -70,6 +70,7 @@ interface GameContextType {
   pauseSprintTimer: () => void;
   resumeSprintTimer: () => void;
   setCurrentScreen: (screen: string) => void;
+  goToMenu: () => void;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -178,6 +179,11 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({
       console.error("Failed to clear saved state on new game:", e);
     }
   }, [_initializeNewGameState]);
+
+  const goToMenu = useCallback(async () => {
+    setGamePhase("MAIN_MENU");
+    setCurrentScreen("menu");
+  }, []);
 
   const resetGame = useCallback(async () => {
     _initializeNewGameState();
@@ -381,6 +387,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({
         } else {
           pauseSprintTimerInternal();
         }
+        setGamePhase("SPRINT_PLANNING");
       } else {
         if (Platform.OS === "web")
           console.log("No saved game state found (web), starting fresh.");
@@ -459,6 +466,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({
         resetGame,
         pauseSprintTimer,
         resumeSprintTimer,
+        goToMenu,
       }}
     >
       {children}
