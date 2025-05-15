@@ -4,7 +4,7 @@ import { Button, SafeAreaView, StyleSheet, Text, View } from "react-native";
 import { useGame } from "../src/contexts/GameContext";
 
 export default function MenuScreen() {
-  const { startGame, setCurrentScreen } = useGame();
+  const { startGame, loadState } = useGame();
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -13,6 +13,8 @@ export default function MenuScreen() {
         <Text style={styles.subtitle}>The Developer's Puzzle Challenge</Text>
         <View style={styles.buttonContainer}>
           <Button title="Start New Game" onPress={startGame} />
+          <Button title="Continue Game" onPress={loadState} />
+          
         </View>
         {/* TODO: Add "How to Play", "Settings" if time permits */}
       </View>

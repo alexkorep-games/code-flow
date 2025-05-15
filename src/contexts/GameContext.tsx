@@ -53,6 +53,7 @@ interface GameContextType {
   currentScreen: string;
 
   startGame: () => void;
+  loadState: () => Promise<void>;
   planSprint: () => void;
   addTicketToSprint: (ticketId: TicketID) => void;
   removeTicketFromSprint: (ticketId: TicketID) => void;
@@ -344,59 +345,54 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({
     await saveGameState();
   }, [pauseSprintTimerInternal, saveGameState]);
 
-  // --- Persistence useEffects ---
-
-  useEffect(() => {
-    const loadState = async () => {
-      try {
-        const jsonState = await AsyncStorage.getItem(GAME_STATE_STORAGE_KEY);
-        if (jsonState !== null) {
-          const loadedState = JSON.parse(jsonState) as SavedGameState;
-          if (Platform.OS === "web")
-            console.log(
-              "Loaded game state (web):",
-              loadedState.gamePhase,
-              "Sprint:",
-              loadedState.sprintNumber
-            );
-          setGamePhase(loadedState.gamePhase);
-          setSprintNumber(loadedState.sprintNumber);
-          setBacklog(loadedState.backlog);
-          setCurrentSprintTickets(loadedState.currentSprintTickets);
-          setActiveTicketId(loadedState.activeTicketId);
-          setSprintTotalTime(loadedState.sprintTotalTime);
-          resetSprintTimerInternal(loadedState.sprintTotalTime);
-          sprintTimerSetTimeManually(loadedState.sprintTimeRemaining);
-          setTotalTicketsCompleted(loadedState.totalTicketsCompleted);
-          setCompletedTicketsThisSprint(loadedState.completedTicketsThisSprint);
+  const loadState = async () => {
+    try {
+      const jsonState = await AsyncStorage.getItem(GAME_STATE_STORAGE_KEY);
+      if (jsonState !== null) {
+        const loadedState = JSON.parse(jsonState) as SavedGameState;
+        if (Platform.OS === "web")
+          console.log(
+            "Loaded game state (web):",
+            loadedState.gamePhase,
+            "Sprint:",
+            loadedState.sprintNumber
+          );
+        setGamePhase(loadedState.gamePhase);
+        setSprintNumber(loadedState.sprintNumber);
+        setBacklog(loadedState.backlog);
+        setCurrentSprintTickets(loadedState.currentSprintTickets);
+        setActiveTicketId(loadedState.activeTicketId);
+        setSprintTotalTime(loadedState.sprintTotalTime);
+        resetSprintTimerInternal(loadedState.sprintTotalTime);
+        sprintTimerSetTimeManually(loadedState.sprintTimeRemaining);
+        setTotalTicketsCompleted(loadedState.totalTicketsCompleted);
+        setCompletedTicketsThisSprint(loadedState.completedTicketsThisSprint);
+        if (
+          loadedState.isSprintTimerRunning &&
+          loadedState.sprintTimeRemaining > 0
+        ) {
           if (
-            loadedState.isSprintTimerRunning &&
-            loadedState.sprintTimeRemaining > 0
+            loadedState.gamePhase === "PUZZLE_SOLVING" ||
+            (loadedState.gamePhase === "SPRINT_ACTIVE" &&
+              loadedState.isSprintTimerRunning)
           ) {
-            if (
-              loadedState.gamePhase === "PUZZLE_SOLVING" ||
-              (loadedState.gamePhase === "SPRINT_ACTIVE" &&
-                loadedState.isSprintTimerRunning)
-            ) {
-              startSprintTimerInternal();
-            }
-          } else {
-            pauseSprintTimerInternal();
+            startSprintTimerInternal();
           }
         } else {
-          if (Platform.OS === "web")
-            console.log("No saved game state found (web), starting fresh.");
-          setGamePhase("MAIN_MENU");
+          pauseSprintTimerInternal();
         }
-      } catch (e) {
-        console.error("Failed to load game state:", e);
+      } else {
+        if (Platform.OS === "web")
+          console.log("No saved game state found (web), starting fresh.");
         setGamePhase("MAIN_MENU");
-      } finally {
-        setIsPersistenceLoading(false);
       }
-    };
-    loadState();
-  }, []);
+    } catch (e) {
+      console.error("Failed to load game state:", e);
+      setGamePhase("MAIN_MENU");
+    } finally {
+      setIsPersistenceLoading(false);
+    }
+  };
 
   useEffect(() => {
     const subscription = AppState.addEventListener(
@@ -451,6 +447,7 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({
         currentScreen,
         setCurrentScreen,
         startGame,
+        loadState,
         planSprint,
         addTicketToSprint,
         removeTicketFromSprint,
