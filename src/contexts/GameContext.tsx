@@ -1,12 +1,11 @@
 // src/contexts/GameContext.tsx
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { atom, useAtom } from "jotai";
 import React, {
   createContext,
   ReactNode,
   useCallback,
-  useContext,
-  useEffect,
-  useState,
+  useEffect
 } from "react";
 import {
   ActivityIndicator,
@@ -75,23 +74,36 @@ interface GameContextType {
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
-export const GameProvider: React.FC<{ children: ReactNode }> = ({
-  children,
-}) => {
-  const [isPersistenceLoading, setIsPersistenceLoading] = useState(true);
-  const [gamePhase, setGamePhase] = useState<GamePhase>("MAIN_MENU");
-  const [sprintNumber, setSprintNumber] = useState(0);
-  const [backlog, setBacklog] = useState<Ticket[]>([]);
-  const [currentSprintTickets, setCurrentSprintTickets] = useState<Ticket[]>(
-    []
-  );
-  const [activeTicketId, setActiveTicketId] = useState<TicketID | null>(null);
-  const [sprintTotalTime, setSprintTotalTime] = useState(0);
-  const [totalTicketsCompleted, setTotalTicketsCompleted] = useState(0);
-  const [completedTicketsThisSprint, setCompletedTicketsThisSprint] =
-    useState(0);
-  const [currentScreen, setCurrentScreen] = useState<string>("menu");
+// Atoms for all stateful values
+const isPersistenceLoadingAtom = atom(true);
+const gamePhaseAtom = atom<GamePhase>("MAIN_MENU");
+const sprintNumberAtom = atom(0);
+const backlogAtom = atom<Ticket[]>([]);
+const currentSprintTicketsAtom = atom<Ticket[]>([]);
+const activeTicketIdAtom = atom<TicketID | null>(null);
+const sprintTotalTimeAtom = atom(0);
+const totalTicketsCompletedAtom = atom(0);
+const completedTicketsThisSprintAtom = atom(0);
+const currentScreenAtom = atom<string>("menu");
 
+export const GameProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  return <>{children}</>;
+};
+
+export const useGame = () => {
+  // Use jotai atoms for all state
+  const [gamePhase, setGamePhase] = useAtom(gamePhaseAtom);
+  const [sprintNumber, setSprintNumber] = useAtom(sprintNumberAtom);
+  const [backlog, setBacklog] = useAtom(backlogAtom);
+  const [currentSprintTickets, setCurrentSprintTickets] = useAtom(currentSprintTicketsAtom);
+  const [activeTicketId, setActiveTicketId] = useAtom(activeTicketIdAtom);
+  const [sprintTotalTime, setSprintTotalTime] = useAtom(sprintTotalTimeAtom);
+  const [totalTicketsCompleted, setTotalTicketsCompleted] = useAtom(totalTicketsCompletedAtom);
+  const [completedTicketsThisSprint, setCompletedTicketsThisSprint] = useAtom(completedTicketsThisSprintAtom);
+  const [isPersistenceLoading, setIsPersistenceLoading] = useAtom(isPersistenceLoadingAtom);
+  const [currentScreen, setCurrentScreen] = useAtom(currentScreenAtom);
+
+  // Timer logic
   const handleSprintTimerEnd = useCallback(() => {
     Alert.alert("Sprint Over!", "Time's up for this sprint.", [{ text: "OK" }]);
     setGamePhase("SPRINT_REVIEW");
@@ -103,18 +115,11 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({
     startTimer: startSprintTimerInternal,
     pauseTimer: pauseSprintTimerInternal,
     resetTimer: resetSprintTimerInternal,
-    setTimeManually: sprintTimerSetTimeManually, // For loading state
+    setTimeManually: sprintTimerSetTimeManually,
   } = useGameTimer({
     initialTime: sprintTotalTime,
     onTimerEnd: handleSprintTimerEnd,
   });
-
-  const activeTicket: Ticket | null =
-    activeTicketId != null
-      ? currentSprintTickets.find((t) => t.id === activeTicketId) ||
-        backlog.find((t) => t.id === activeTicketId) ||
-        null
-      : null;
 
   const saveGameState = useCallback(async () => {
     if (Platform.OS === "web")
@@ -435,49 +440,39 @@ export const GameProvider: React.FC<{ children: ReactNode }> = ({
     );
   }
 
-  // Update context value to use correct timer state
-  return (
-    <GameContext.Provider
-      value={{
-        gamePhase,
-        sprintNumber,
-        backlog,
-        currentSprintTickets,
-        activeTicketId,
-        activeTicket,
-        sprintTotalTime,
-        sprintTimeRemaining: timeRemaining,
-        isSprintTimerRunning: isRunning,
-        completedTicketsThisSprint,
-        totalTicketsCompleted,
-        isPersistenceLoading,
-        currentScreen,
-        setCurrentScreen,
-        startGame,
-        loadState,
-        planSprint,
-        addTicketToSprint,
-        removeTicketFromSprint,
-        startSprint,
-        selectTicketToWorkOn,
-        saveAndExitPuzzle,
-        completeTicket,
-        endSprintEarly,
-        resetGame,
-        pauseSprintTimer,
-        resumeSprintTimer,
-        goToMenu,
-      }}
-    >
-      {children}
-    </GameContext.Provider>
-  );
-};
-
-export const useGame = () => {
-  const context = useContext(GameContext);
-  if (context === undefined) {
-    throw new Error("useGame must be used within a GameProvider");
-  }
-  return context;
+  // Return the same API as before
+  return {
+    gamePhase,
+    sprintNumber,
+    backlog,
+    currentSprintTickets,
+    activeTicketId,
+    activeTicket: activeTicketId != null
+      ? currentSprintTickets.find((t) => t.id === activeTicketId) ||
+        backlog.find((t) => t.id === activeTicketId) ||
+        null
+      : null,
+    sprintTotalTime,
+    sprintTimeRemaining: timeRemaining,
+    isSprintTimerRunning: isRunning,
+    completedTicketsThisSprint,
+    totalTicketsCompleted,
+    isPersistenceLoading,
+    currentScreen,
+    setCurrentScreen,
+    startGame,
+    loadState,
+    planSprint,
+    addTicketToSprint,
+    removeTicketFromSprint,
+    startSprint,
+    selectTicketToWorkOn,
+    saveAndExitPuzzle,
+    completeTicket,
+    endSprintEarly,
+    resetGame,
+    pauseSprintTimer,
+    resumeSprintTimer,
+    goToMenu,
+  };
 };
